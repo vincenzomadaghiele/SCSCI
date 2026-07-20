@@ -1,0 +1,1 @@
+train a transformer seq2seq on latent encodings of source and target sounds
