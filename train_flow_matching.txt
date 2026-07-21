@@ -1,1 +1,0 @@
-train a flow matching model on synth events

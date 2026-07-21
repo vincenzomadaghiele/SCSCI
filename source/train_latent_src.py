@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
     # load data
     corpus_name = 'myvoice'
-    data_path = f'corpus/{corpus_name}/info/mel'
+    data_path = f'corpora/{corpus_name}/info/mel'
     corpus_paths = []
     for file in os.listdir(data_path):
         if file.endswith(".npy"):
@@ -91,11 +91,12 @@ if __name__ == "__main__":
     for file in corpus_paths:
         corpus_file = np.load(file, allow_pickle=True)
         for event in corpus_file:
-            mel = librosa.power_to_db(event['mel'], ref=np.max)
-            # mel = event['mel']
-            mels.append(mel)
-            np.save(f'./{save_full_mels_path}/event-{i}.npy', np.array(mel))
-            i += 1
+            if event['mel'].mean() != 0:
+                mel = librosa.power_to_db(event['mel'], ref=np.max)
+                # mel = event['mel']
+                mels.append(mel)
+                np.save(f'./{save_full_mels_path}/event-{i}.npy', np.array(mel))
+                i += 1
     
     print(len(mels))
     compute_stats = []
