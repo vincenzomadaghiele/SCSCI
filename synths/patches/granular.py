@@ -17,14 +17,14 @@ class Granular(Patch):
         trigger_variance = self.add_input("trigger_variance", parameter_values[7])
         gain = self.add_input("gain", parameter_values[8])
         A = self.add_input(f"A", parameter_values[9])
-        D = self.add_input(f"D", parameter_values[10])
-        S = self.add_input(f"S", parameter_values[11])
-        R = self.add_input(f"R", parameter_values[12])
-        gate = self.add_input("gate", 1.0)
+        # D = self.add_input(f"D", parameter_values[10])
+        S = self.add_input(f"S", parameter_values[10])
+        R = self.add_input(f"R", parameter_values[11])
+        # gate = self.add_input("gate", 1.0)
 
         # scale parameters
         # buf = Buffer("./samples/bowed-guitar.wav")
-        buf = Buffer("./samples/tibetan-ball.wav")
+        buf = Buffer("./synths/patches/samples/tibetan-ball.wav")
         frequency = ScaleLinExp(input=frequency, a=0, b=1, c=1, d=50)
         duration = ScaleLinExp(input=duration, a=0, b=1, c=0.1, d=2)
         position = ScaleLinLin(input=position, a=0, b=1, c=0, d=buf.duration)
@@ -34,12 +34,13 @@ class Granular(Patch):
         rate_variance = ScaleLinLin(input=rate_variance, a=0, b=1, c=0, d=2)
         trigger_variance = ScaleLinLin(input=trigger_variance, a=0, b=1, c=0, d=1)
         A = ScaleLinLin(input=A, a=0, b=1, c=0.001, d=0.1)
-        D = ScaleLinLin(input=D, a=0, b=1, c=0.01, d=0.3)
+        # D = ScaleLinLin(input=D, a=0, b=1, c=0.01, d=0.3)
         S = ScaleLinLin(input=S, a=0, b=1, c=0.5, d=3)
         R = ScaleLinLin(input=R, a=0, b=1, c=0.6, d=2)
 
         # define synthesizer
-        env = ADSREnvelope(A, D, S, R, gate=gate)
+        # env = ADSREnvelope(A, D, S, R, gate=gate)
+        env = ASREnvelope(A, S, R)
         grain_frequency = WhiteNoise(frequency=frequency, 
                                      min=frequency-frequency*trigger_variance, 
                                      max=frequency+frequency*trigger_variance)
@@ -57,6 +58,7 @@ class Granular(Patch):
         output = granulator * env * gain
 
         # forward
+        self.set_trigger_node(env)
         self.set_output(output)
         self.set_auto_free(True)
 

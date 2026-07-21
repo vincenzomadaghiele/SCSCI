@@ -1,8 +1,12 @@
 **/__pycache__/**
 **/01_model_logs/**
 **.wav
-**/.txt
-**/.DS_Store
-**/.venv
+**.txt
+**.DS_Store
+**.venv
+**.npy
+**.png
+**.pt
+**.pth
 
 .DS_Store

@@ -5,30 +5,32 @@ import random
 
 
 class ADSRTheremin(Patch):
-    def __init__(self, parameter_values: list = [0,0,0,0,0,0]):
+    def __init__(self, parameter_values: list = [0,0,0,0,0]):
         super().__init__()
 
         frequency = self.add_input(f"frequency", parameter_values[0])
         gain = self.add_input(f"gain", parameter_values[1])
         A = self.add_input(f"A", parameter_values[2])
-        D = self.add_input(f"D", parameter_values[3])
-        S = self.add_input(f"S", parameter_values[4])
-        R = self.add_input(f"R", parameter_values[5])
-        gate = self.add_input("gate", 1.0)
+        # D = self.add_input(f"D", parameter_values[3])
+        S = self.add_input(f"S", parameter_values[3])
+        R = self.add_input(f"R", parameter_values[4])
+        # gate = self.add_input("gate", 1.0)
 
         frequency = ScaleLinLin(input=frequency, a=0, b=1, c=220, d=660)
         gain = ScaleLinLin(input=gain, a=0, b=1, c=0, d=1)
         A = ScaleLinLin(input=A, a=0, b=1, c=0.001, d=0.01)
-        D = ScaleLinLin(input=D, a=0, b=1, c=0.1, d=0.6)
+        # D = ScaleLinLin(input=D, a=0, b=1, c=0.1, d=0.6)
         S = ScaleLinLin(input=S, a=0, b=1, c=0.3, d=1)
         R = ScaleLinLin(input=R, a=0, b=1, c=0.1, d=0.3)
 
         # create synth
         sine = SineOscillator(frequency)
-        env = ADSREnvelope(A, D, S, R, gate=gate)
+        # env = ADSREnvelope(A, D, S, R, gate=gate)
+        env = ASREnvelope(A, S, R)
         output = sine * env * gain
 
         # forward
+        self.set_trigger_node(env)
         self.set_output(output)
         self.set_auto_free(True)
 

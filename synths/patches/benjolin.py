@@ -26,7 +26,7 @@ class Rungler(Patch):
         graph.add_node(FeedbackBufferWriter(buf, sh8, 0.05))
         RUNGLER = (sh6/8) + (sh7/4) + (sh8/2)
         self.output = RUNGLER
-        self.set_auto_free(False)
+        self.set_auto_free(True)
 
 class Benjolin(Patch):
     def __init__(self, graph: AudioGraph, parameter_values: list = [0,0,0,0,0,0,0,0,0,0,0,0,0]):
@@ -42,10 +42,10 @@ class Benjolin(Patch):
         FIL_SWP = self.add_input("FIL_SWP", parameter_values[7])
         gain = self.add_input("gain", parameter_values[8])
         A = self.add_input(f"A", parameter_values[9])
-        D = self.add_input(f"D", parameter_values[10])
-        S = self.add_input(f"S", parameter_values[11])
-        R = self.add_input(f"R", parameter_values[12])
-        gate = self.add_input("gate", 1.0)
+        # D = self.add_input(f"D", parameter_values[10])
+        S = self.add_input(f"S", parameter_values[10])
+        R = self.add_input(f"R", parameter_values[11])
+        # gate = self.add_input("gate", 1.0)
 
         ## PARAMETERS
         FRQ01 = ScaleLinLin(input=FRQ01, a=0, b=1, c=0, d=127)
@@ -57,10 +57,11 @@ class Benjolin(Patch):
         FIL_RUN = ScaleLinLin(input=FIL_RUN, a=0, b=1, c=0, d=127)
         FIL_SWP = ScaleLinLin(input=FIL_SWP, a=0, b=1, c=0, d=127)
         A = ScaleLinLin(input=A, a=0, b=1, c=0.001, d=0.01)
-        D = ScaleLinLin(input=D, a=0, b=1, c=0.1, d=0.9)
+        # D = ScaleLinLin(input=D, a=0, b=1, c=0.1, d=0.9)
         S = ScaleLinLin(input=S, a=0, b=1, c=0.5, d=1)
         R = ScaleLinLin(input=R, a=0, b=1, c=0.1, d=1)
-        env = ADSREnvelope(A, D, S, R, gate=gate)
+        # env = ADSREnvelope(A, D, S, R, gate=gate)
+        env = ASREnvelope(A, S, R)
 
         buf_pulse01 = Buffer(1, graph.output_buffer_size)
         buf_pulse02 = Buffer(1, graph.output_buffer_size)
@@ -96,8 +97,9 @@ class Benjolin(Patch):
         output = Compressor(input=output, threshold=0.2, ratio=4, attack_time=0.01, release_time=0.1)
         output = output * gain * env
 
-        self.output = output
-        self.set_auto_free(False)
+        self.set_output(output)
+        self.set_trigger_node(env)
+        self.set_auto_free(True)
 
 if __name__ == "__main__":
 

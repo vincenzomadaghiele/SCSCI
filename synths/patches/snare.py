@@ -14,17 +14,17 @@ class Snare(Patch):
         modulator_frequency = self.add_input(f"modulator_frequency", parameter_values[3])
         gain = self.add_input(f"gain", parameter_values[4])
         A = self.add_input(f"A", parameter_values[5])
-        D = self.add_input(f"D", parameter_values[6])
-        S = self.add_input(f"S", parameter_values[7])
-        R = self.add_input(f"R", parameter_values[8])
-        gate = self.add_input("gate", 1.0)
+        # D = self.add_input(f"D", parameter_values[6])
+        S = self.add_input(f"S", parameter_values[6])
+        R = self.add_input(f"R", parameter_values[7])
+        # gate = self.add_input("gate", 1.0)
 
         cutoff_scale = ScaleLinLin(input=cutoff_scale, a=0, b=1, c=100, d=10100)
         # decay = ScaleLinLin(input=decay, a=0, b=1, c=0.1, d=0.99)
         center_frequency = ScaleLinLin(input=center_frequency, a=0, b=1, c=70, d=200)
         modulator_frequency = ScaleLinLin(input=modulator_frequency, a=0, b=1, c=30, d=60)
         A = ScaleLinLin(input=A, a=0, b=1, c=0.0001, d=0.001)
-        D = ScaleLinLin(input=D, a=0, b=1, c=0.01, d=0.3)
+        # D = ScaleLinLin(input=D, a=0, b=1, c=0.01, d=0.3)
         S = ScaleLinLin(input=S, a=0, b=1, c=0.01, d=0.1)
         R = ScaleLinLin(input=R, a=0, b=1, c=0.01, d=0.9)
 
@@ -33,7 +33,8 @@ class Snare(Patch):
         FM = SineOscillator(center_frequency + carrier * 30)
         noise = WhiteNoise(frequency=0.0, min=-1.0, max=1.0)
         noise.set_seed(666)
-        env = ADSREnvelope(A, D, S, R, gate=gate)
+        # env = ADSREnvelope(A, D, S, R, gate=gate)
+        env = ASREnvelope(A, S, R)
         out = noise * env * 0.15
         filter_out = SVFilter(input=out, filter_type='high_pass', cutoff=100, resonance=0.1)
         filter_1 = SVFilter(input=filter_out + FM * env * env, filter_type='band_pass', cutoff=(env**2)*cutoff_scale+100, resonance=0.6)
@@ -41,8 +42,9 @@ class Snare(Patch):
         output = (filter_1 + filter_2) * gain
 
         # forward
+        self.set_trigger_node(env)
         self.set_output(output)
-        self.set_auto_free(False)
+        self.set_auto_free(True)
 
 if __name__ == "__main__":
 

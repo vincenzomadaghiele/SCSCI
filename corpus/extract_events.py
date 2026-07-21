@@ -150,7 +150,7 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 				total_rest_duration = 0
 	return new_events
 
-def plotEvents(corpus_entry, sample_rate, sample_start_s=0, sample_duration_s=None):
+def plotEvents(corpus_entry, sample_rate, save_dir, sample_start_s=0, sample_duration_s=None):
 	plot_df_src = pd.DataFrame(columns=['mels','event_start','event_duration'])
 	for e in corpus_entry['events']:
 		new_row_data = {} 
@@ -188,8 +188,10 @@ def plotEvents(corpus_entry, sample_rate, sample_start_s=0, sample_duration_s=No
 	ax.legend()
 	ax.set_xlabel('time [s]')
 	ax.set_ylabel(plot_feature_src)
-	ax.set_title(corpus_entry['filename'])
-	plt.show()
+	figname = corpus_entry['filename'].split('/')[-1].split('.')[0]
+	ax.set_title(figname)
+	plt.savefig(f'{save_dir}/{figname}.png')
+	# plt.show()
 
 
 
@@ -211,11 +213,14 @@ if __name__ == "__main__":
 	corpus_files = [f'{corpus_path}/{filename}' for filename in corpus_files if filename[-4:] == '.wav']
 	save_dir = f'{corpus_path}/info'
 	os.makedirs(save_dir, exist_ok=True)
+	os.makedirs(f'{save_dir}/mel', exist_ok=True)
+	os.makedirs(f'{save_dir}/img', exist_ok=True)
 	with open(f'{save_dir}/featureExtraction_params.json', 'w', encoding='utf-8') as f:
 		json.dump(processing_params, f, ensure_ascii=False, indent=4)
 
 	corpus_events = []
 	for audiofile in corpus_files:
+		trackname = audiofile.split('/')[-1].split('.')[0]
 		signal, _ = librosa.load(audiofile, sr=processing_params['sample_rate'], mono=True)
 		signal = adjustAmplitude(signal, processing_params['FFT_window_size'], processing_params['hop_size'])
 		print(f'Loading audiofile {audiofile} with length {signal.shape[0]} samples')
@@ -233,8 +238,9 @@ if __name__ == "__main__":
 		this_file_event = {}
 		this_file_event['filename'] = audiofile
 		this_file_event['events'] = new_events
+		np.save(f'./{corpus_path}/info/mel/{trackname}.npy', np.array(new_events, dtype=object), allow_pickle=True)
 		corpus_events.append(this_file_event)
 
-	corpus_entry = corpus_events[0]
-	plotEvents(corpus_entry, processing_params['sample_rate'])
+	for corpus_entry in corpus_events:
+		plotEvents(corpus_entry, processing_params['sample_rate'], save_dir=f'./{corpus_path}/info/img')
 
