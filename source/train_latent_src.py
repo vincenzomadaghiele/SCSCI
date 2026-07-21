@@ -199,7 +199,7 @@ if __name__ == "__main__":
     # data_logger = defaultdict(lambda: [])
     # save_interval = 256
     # save_dir = f'corpora/{corpus_name}/models/results'
-    save_dir = 'trained/results'
+    save_dir = f'corpora/{corpus_name}/trained/results'
     # model_name = 'RES_VAE'
     # save_file_name = 'RES_VAE_dynamic'
     os.makedirs(f'{save_dir}/images', exist_ok=True)
@@ -253,7 +253,7 @@ if __name__ == "__main__":
     model = Autoencoder().to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.01)
-    num_epochs = 100
+    num_epochs = 20
 
     for epoch in range(num_epochs):
         model.train()
@@ -286,9 +286,9 @@ if __name__ == "__main__":
             ax[0, 0].set_title('Original')
             ax[1, 0].set_title('Reconstructed')
             plt.savefig(f'{save_dir}/images/conv_AE_recon-{epoch+1}.png')
-
     torch.save(model.state_dict(), f'{save_dir}/conv_AE.pth')
-    model.load_state_dict(torch.load(f'{save_dir}/conv_AE.pth', weights_only=True))
+
+    # model.load_state_dict(torch.load(f'{save_dir}/conv_AE.pth', weights_only=True))
     # model.eval()
     # with torch.no_grad():
     #     for data in test_loader:
