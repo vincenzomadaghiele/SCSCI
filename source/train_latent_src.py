@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from tqdm import trange, tqdm
 from collections import defaultdict
 import shutil
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 import torch
 import torchaudio
@@ -49,17 +51,17 @@ class Autoencoder(nn.Module):
     def __init__(self):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Conv2d(1, 16, 3, stride=1, padding=1),
+            nn.Conv2d(1, 8, 3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2, stride=2),
-            nn.Conv2d(16, 8, 3, stride=1, padding=1),
+            nn.Conv2d(8, 4, 3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2, stride=2)
         )
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(8, 16, 3, stride=2, padding=1, output_padding=1),
+            nn.ConvTranspose2d(4, 8, 3, stride=2, padding=1, output_padding=1),
             nn.ReLU(),
-            nn.ConvTranspose2d(16, 1, 3, stride=2, padding=1, output_padding=1),
+            nn.ConvTranspose2d(8, 1, 3, stride=2, padding=1, output_padding=1),
             nn.Sigmoid()
         )
     def forward(self, x):
@@ -136,7 +138,7 @@ if __name__ == "__main__":
     train_set, test_set = torch.utils.data.random_split(data_set, [n_train_examples, n_test_examples],
                                                         generator=torch.Generator().manual_seed(42))
 
-    batch_size = 16
+    batch_size = 8
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4)
     test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
 
@@ -196,10 +198,11 @@ if __name__ == "__main__":
     # kl_scale = 1
     # data_logger = defaultdict(lambda: [])
     # save_interval = 256
-    save_dir = 'models/results'
+    # save_dir = f'corpora/{corpus_name}/models/results'
+    save_dir = 'trained/results'
     # model_name = 'RES_VAE'
     # save_file_name = 'RES_VAE_dynamic'
-    # os.makedirs(f'{save_dir}/images', exist_ok=True)
+    os.makedirs(f'{save_dir}/images', exist_ok=True)
     # os.makedirs(f'{save_dir}/trained', exist_ok=True)
     # for epoch in trange(start_epoch, nepoch, leave=False):
     #     vae_net.train()
@@ -249,7 +252,7 @@ if __name__ == "__main__":
 
     model = Autoencoder().to(device)
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
     num_epochs = 100
 
     for epoch in range(num_epochs):
@@ -282,25 +285,47 @@ if __name__ == "__main__":
                 ax[1, i].axis('off')
             ax[0, 0].set_title('Original')
             ax[1, 0].set_title('Reconstructed')
-            plt.savefig(f'{save_dir}/images/reconstruction-{epoch+1}.png')
+            plt.savefig(f'{save_dir}/images/conv_AE_recon-{epoch+1}.png')
 
-    torch.save(model.state_dict(), f'{save_dir}/conv_autoencoder.pth')
-    model.load_state_dict(torch.load(f'{save_dir}/conv_autoencoder.pth', weights_only=True))
-    model.eval()
-    with torch.no_grad():
-        for data in test_loader:
-            data = data.to(device)
-            recon = model(data)
-            break
+    torch.save(model.state_dict(), f'{save_dir}/conv_AE.pth')
+    model.load_state_dict(torch.load(f'{save_dir}/conv_AE.pth', weights_only=True))
+    # model.eval()
+    # with torch.no_grad():
+    #     for data in test_loader:
+    #         data = data.to(device)
+    #         recon = model(data)
+    #         break
 
-    fig, ax = plt.subplots(2, 7, figsize=(15, 4))
-    for i in range(7):
-        ax[0, i].imshow(data[i].cpu().numpy().transpose((1, 2, 0)))
-        # ax[0, i].imshow(librosa.power_to_db(data[i].cpu().numpy().transpose(1, 2, 0), ref=np.max))
-        ax[0, i].axis('off')
-        ax[1, i].imshow(recon[i].cpu().numpy().transpose((1, 2, 0)))
-        ax[1, i].axis('off')
-    ax[0, 0].set_title('Original')
-    ax[1, 0].set_title('Reconstructed')
-    plt.show()
+    # fig, ax = plt.subplots(2, 7, figsize=(15, 4))
+    # for i in range(7):
+    #     ax[0, i].imshow(data[i].cpu().numpy().transpose((1, 2, 0)))
+    #     # ax[0, i].imshow(librosa.power_to_db(data[i].cpu().numpy().transpose(1, 2, 0), ref=np.max))
+    #     ax[0, i].axis('off')
+    #     ax[1, i].imshow(recon[i].cpu().numpy().transpose((1, 2, 0)))
+    #     ax[1, i].axis('off')
+    # ax[0, 0].set_title('Original')
+    # ax[1, 0].set_title('Reconstructed')
+    # plt.show()
 
+    # model.eval()
+    # latents = []
+    # with torch.no_grad():
+    #     for data in train_loader:
+    #         data = data.to(device)
+    #         latent = model.encoder(data).cpu().numpy()
+    #         for i in range(latent.shape[0]):
+    #             latents.append(latent[i])
+
+    # full_latents = np.array([lat.reshape(-1) for lat in latents])
+    # scaler = StandardScaler()
+    # full_latents_scaled = scaler.fit_transform(full_latents)
+    # pca = PCA(n_components=3)
+    # X_PCA = pca.fit_transform(full_latents)
+    # print(f'explained variances: {pca.explained_variance_ratio_}')
+    # plot_scaler = StandardScaler()
+    # X_PCA_scaled = plot_scaler.fit_transform(X_PCA)
+
+    # fig = plt.figure(figsize=(6, 6))
+    # ax = fig.add_subplot(projection='3d')
+    # ax.scatter(X_PCA_scaled[:,0], X_PCA_scaled[:,1], X_PCA_scaled[:,2])
+    # plt.show()

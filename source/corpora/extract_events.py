@@ -208,7 +208,7 @@ if __name__ == "__main__":
 	processing_params['min_event_duration_samples'] = 882
 
 	# extract 
-	corpus_path = 'corpus/myvoice'
+	corpus_path = 'corpora/guitar'
 	corpus_files = os.listdir(corpus_path)
 	corpus_files = [f'{corpus_path}/{filename}' for filename in corpus_files if filename[-4:] == '.wav']
 	save_dir = f'{corpus_path}/info'
