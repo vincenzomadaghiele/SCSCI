@@ -5,8 +5,11 @@
 **.DS_Store
 **.venv
 **.npy
+**.npz
 **.png
 **.pt
 **.pth
+**.model
+**.pdf
 
 .DS_Store

@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 # Internal imports
-from utils.dataModified import load_dataset, get_external_sounds
+from utils.data import load_dataset, get_external_sounds
 from models.vae.ae import AE, RegressionAE, DisentanglingAE
 from models.vae.vae import VAE
 from models.vae.wae import WAE

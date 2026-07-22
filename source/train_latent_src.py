@@ -51,7 +51,13 @@ class Autoencoder(nn.Module):
     def __init__(self):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Conv2d(1, 8, 3, stride=1, padding=1),
+            nn.Conv2d(1, 32, 3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, stride=2),
+            nn.Conv2d(32, 16, 3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(2, stride=2),
+            nn.Conv2d(16, 8, 3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(2, stride=2),
             nn.Conv2d(8, 4, 3, stride=1, padding=1),
@@ -61,7 +67,11 @@ class Autoencoder(nn.Module):
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(4, 8, 3, stride=2, padding=1, output_padding=1),
             nn.ReLU(),
-            nn.ConvTranspose2d(8, 1, 3, stride=2, padding=1, output_padding=1),
+            nn.ConvTranspose2d(8, 16, 3, stride=2, padding=1, output_padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(16, 32, 3, stride=2, padding=1, output_padding=1),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 1, 3, stride=2, padding=1, output_padding=1),
             nn.Sigmoid()
         )
     def forward(self, x):
@@ -100,7 +110,7 @@ if __name__ == "__main__":
                 np.save(f'./{save_full_mels_path}/event-{i}.npy', np.array(mel))
                 i += 1
     
-    print(len(mels))
+    print(f'-Number of events in dataset: {len(mels)}')
     compute_stats = []
     for mel in mels:
         compute_stats.append(mel.reshape(-1))
@@ -122,7 +132,7 @@ if __name__ == "__main__":
 
     # Create dataloaders
     image_size = 64
-    print("-Target Image Size %d" % image_size)
+    print("-Target Image Size: %d" % image_size)
     transform = transforms.Compose([transforms.Resize(image_size),
                                     transforms.CenterCrop(image_size),
                                     # transforms.RandomHorizontalFlip(0.5),
@@ -145,7 +155,6 @@ if __name__ == "__main__":
     # Get a test image batch from the test_loader to visualise the reconstruction quality etc
     dataiter = iter(test_loader)
     test_images = next(dataiter)
-    print(test_images.shape)
 
     # # Create AE network.
     # ch_multi = 64
@@ -153,7 +162,7 @@ if __name__ == "__main__":
     # latent_channels = 32
     # num_res_blocks = 1
     # norm_type = "gn"
-    # deep_model = True
+    # deep_model = False
     # vae_net = VAE(channel_in=test_images.shape[1],
     #             ch=ch_multi,
     #             blocks=block_widths,
@@ -163,34 +172,8 @@ if __name__ == "__main__":
     #             deep_model=deep_model).to(device)
 
     # # Setup optimizer
-    # lr = 1e-4
+    # lr = 0.01
     # optimizer = optim.Adam(vae_net.parameters(), lr=lr)
-
-    # if norm_type == "bn":
-    #     print("-Using BatchNorm")
-    # elif norm_type == "gn":
-    #     print("-Using GroupNorm")
-    # else:
-    #     ValueError("norm_type must be bn or gn")
-
-    # # Create the feature loss module if required
-    # feature_scale = 0
-    # if feature_scale > 0:
-    #     feature_extractor = VGG19().to(device)
-    #     print("-VGG19 Feature Loss ON")
-    # else:
-    #     feature_extractor = None
-    #     print("-VGG19 Feature Loss OFF")
-
-    # # Let's see how many Parameters our Model has!
-    # num_model_params = 0
-    # for param in vae_net.parameters():
-    #     num_model_params += param.flatten().shape[0]
-
-    # print("-This Model Has %d (Approximately %d Million) Parameters!" % (num_model_params, num_model_params//1e6))
-    # fm_size = image_size//(2 ** len(block_widths))
-    # print("-The Latent Space Size Is %dx%dx%d!" % (latent_channels, fm_size, fm_size))
-
 
     # # Start training loop
     # start_epoch = 0
@@ -198,12 +181,11 @@ if __name__ == "__main__":
     # kl_scale = 1
     # data_logger = defaultdict(lambda: [])
     # save_interval = 256
-    # save_dir = f'corpora/{corpus_name}/models/results'
-    save_dir = f'corpora/{corpus_name}/trained/results'
+    # save_dir = f'corpora/{corpus_name}/trained/RES_VAE'
     # model_name = 'RES_VAE'
     # save_file_name = 'RES_VAE_dynamic'
-    os.makedirs(f'{save_dir}/images', exist_ok=True)
-    # os.makedirs(f'{save_dir}/trained', exist_ok=True)
+    # os.makedirs(f'{save_dir}/images', exist_ok=True)
+    # # os.makedirs(f'{save_dir}/trained', exist_ok=True)
     # for epoch in trange(start_epoch, nepoch, leave=False):
     #     vae_net.train()
     #     for i, images in enumerate(tqdm(train_loader, leave=False)):
@@ -217,16 +199,10 @@ if __name__ == "__main__":
     #         mse_loss = F.mse_loss(recon_img, images)
     #         loss = kl_scale * kl_loss + mse_loss
 
-    #         # Perception loss
-    #         if feature_extractor is not None:
-    #             feat_in = torch.cat((recon_img, images), 0)
-    #             feature_loss = feature_extractor(feat_in)
-    #             loss += feature_scale * feature_loss
-    #             data_logger["feature_loss"].append(feature_loss.item())
-
     #         optimizer.zero_grad()
     #         loss.backward()
     #         torch.nn.utils.clip_grad_norm_(vae_net.parameters(), 10)
+    #         optimizer.step()
 
     #         data_logger["mu"].append(mu.mean().item())
     #         data_logger["mu_var"].append(mu.var().item())
@@ -241,71 +217,73 @@ if __name__ == "__main__":
     #                 recon_img, mu, log_var = vae_net(test_images.to(device))
     #                 data_logger['test_mse_loss'].append(F.mse_loss(recon_img, test_images.to(device)).item())
     #                 img_cat = torch.cat((recon_img.cpu(), test_images), 2).float()
-    #                 vutils.save_image(img_cat, "%s/%s/%s_%d_test-%d.png" % (save_dir, "images", model_name, image_size, current_iter), normalize=True)
-    #                 if os.path.isfile(save_dir + "/trained/" + save_file_name + ".pt"):
-    #                     shutil.copyfile(src=save_dir + "/trained/" + save_file_name + ".pt", 
-    #                                     dst=save_dir + "/trained/" + save_file_name + "_copy.pt")
+    #                 vutils.save_image(img_cat, "%s/%s/%s_%d_test-%d.png" % (save_dir, "images", model_name, image_size, current_iter+1), normalize=True)
+    #                 if os.path.isfile(save_dir + save_file_name + ".pt"):
+    #                     shutil.copyfile(src=save_dir + save_file_name + ".pt", 
+    #                                     dst=save_dir + save_file_name + "_copy.pt")
     #                 torch.save({'epoch': epoch + 1, 'data_logger': dict(data_logger), 'model_state_dict': vae_net.state_dict(),
-    #                             'optimizer_state_dict': optimizer.state_dict()}, save_dir + "/trained/" + save_file_name + ".pt")
+    #                             'optimizer_state_dict': optimizer.state_dict()}, save_dir + save_file_name + ".pt")
     #                 vae_net.train()
 
+    # save_dir = f'corpora/{corpus_name}/trained/AE'
+    # os.makedirs(f'{save_dir}/images', exist_ok=True)
 
-    model = Autoencoder().to(device)
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
-    num_epochs = 20
+    # model = Autoencoder().to(device)
+    # criterion = nn.MSELoss()
+    # optimizer = optim.Adam(model.parameters(), lr=0.01)
+    # num_epochs = 100
 
-    for epoch in range(num_epochs):
-        model.train()
-        running_loss = 0.0
-        for images in train_loader:
-            images = images.to(device)
-            outputs = model(images)
-            loss = criterion(outputs, images)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item() * images.size(0)
-        epoch_loss = running_loss / len(train_loader.dataset)
-        if (epoch + 1) % 5 == 0:
-            print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
+    # for epoch in range(num_epochs):
+    #     model.train()
+    #     running_loss = 0.0
+    #     for images in train_loader:
+    #         images = images.to(device)
+    #         outputs = model(images)
+    #         loss = criterion(outputs, images)
+    #         optimizer.zero_grad()
+    #         loss.backward()
+    #         optimizer.step()
+    #         running_loss += loss.item() * images.size(0)
+    #     epoch_loss = running_loss / len(train_loader.dataset)
+    #     if (epoch + 1) % 5 == 0:
+    #         print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
 
-            model.eval()
-            with torch.no_grad():
-                for data in test_loader:
-                    data = data.to(device)
-                    recon = model(data)
-                    break
-            fig, ax = plt.subplots(2, 7, figsize=(15, 4))
-            for i in range(7):
-                ax[0, i].imshow(data[i].cpu().numpy().transpose((1, 2, 0)))
-                # ax[0, i].imshow(librosa.power_to_db(data[i].cpu().numpy().transpose(1, 2, 0), ref=np.max))
-                ax[0, i].axis('off')
-                ax[1, i].imshow(recon[i].cpu().numpy().transpose((1, 2, 0)))
-                ax[1, i].axis('off')
-            ax[0, 0].set_title('Original')
-            ax[1, 0].set_title('Reconstructed')
-            plt.savefig(f'{save_dir}/images/conv_AE_recon-{epoch+1}.png')
-    torch.save(model.state_dict(), f'{save_dir}/conv_AE.pth')
+    #         model.eval()
+    #         with torch.no_grad():
+    #             for data in test_loader:
+    #                 data = data.to(device)
+    #                 recon = model(data)
+    #                 break
+    #         fig, ax = plt.subplots(2, 7, figsize=(15, 4))
+    #         for i in range(7):
+    #             ax[0, i].imshow(data[i].cpu().numpy().transpose((1, 2, 0)))
+    #             # ax[0, i].imshow(librosa.power_to_db(data[i].cpu().numpy().transpose(1, 2, 0), ref=np.max))
+    #             ax[0, i].axis('off')
+    #             ax[1, i].imshow(recon[i].cpu().numpy().transpose((1, 2, 0)))
+    #             ax[1, i].axis('off')
+    #         ax[0, 0].set_title('Original')
+    #         ax[1, 0].set_title('Reconstructed')
+    #         plt.savefig(f'{save_dir}/images/conv_AE_recon-{epoch+1}.png')
+    #         torch.save(model.state_dict(), f'{save_dir}/conv_AE.pth')
 
     # model.load_state_dict(torch.load(f'{save_dir}/conv_AE.pth', weights_only=True))
-    # model.eval()
-    # with torch.no_grad():
-    #     for data in test_loader:
-    #         data = data.to(device)
-    #         recon = model(data)
-    #         break
+    # # model.eval()
+    # # with torch.no_grad():
+    # #     for data in test_loader:
+    # #         data = data.to(device)
+    # #         recon = model(data)
+    # #         break
 
-    # fig, ax = plt.subplots(2, 7, figsize=(15, 4))
-    # for i in range(7):
-    #     ax[0, i].imshow(data[i].cpu().numpy().transpose((1, 2, 0)))
-    #     # ax[0, i].imshow(librosa.power_to_db(data[i].cpu().numpy().transpose(1, 2, 0), ref=np.max))
-    #     ax[0, i].axis('off')
-    #     ax[1, i].imshow(recon[i].cpu().numpy().transpose((1, 2, 0)))
-    #     ax[1, i].axis('off')
-    # ax[0, 0].set_title('Original')
-    # ax[1, 0].set_title('Reconstructed')
-    # plt.show()
+    # # fig, ax = plt.subplots(2, 7, figsize=(15, 4))
+    # # for i in range(7):
+    # #     ax[0, i].imshow(data[i].cpu().numpy().transpose((1, 2, 0)))
+    # #     # ax[0, i].imshow(librosa.power_to_db(data[i].cpu().numpy().transpose(1, 2, 0), ref=np.max))
+    # #     ax[0, i].axis('off')
+    # #     ax[1, i].imshow(recon[i].cpu().numpy().transpose((1, 2, 0)))
+    # #     ax[1, i].axis('off')
+    # # ax[0, 0].set_title('Original')
+    # # ax[1, 0].set_title('Reconstructed')
+    # # plt.show()
 
     # model.eval()
     # latents = []
@@ -326,6 +304,59 @@ if __name__ == "__main__":
     # X_PCA_scaled = plot_scaler.fit_transform(X_PCA)
 
     # fig = plt.figure(figsize=(6, 6))
-    # ax = fig.add_subplot(projection='3d')
-    # ax.scatter(X_PCA_scaled[:,0], X_PCA_scaled[:,1], X_PCA_scaled[:,2])
-    # plt.show()
+    # ax = fig.add_subplot()
+    # ax.scatter(X_PCA_scaled[:,0], X_PCA_scaled[:,1], s=2)
+    # plt.xlabel('PCA 1')
+    # plt.ylabel('PCA 2')
+    # plt.title('Latent space encodings')
+    # plt.savefig(f'{save_dir}/images/scatter.png')
+    # # plt.show()
+
+
+    from models.VAE import VAE
+    
+    save_dir = f'corpora/{corpus_name}/trained/VAE'
+    os.makedirs(f'{save_dir}/images', exist_ok=True)
+
+    model = VAE(input_dim=64*64, hidden_dim=32, latent_dim=16).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
+
+    def train_step(model, batch, optimizer, kl_weight=1.0):
+        model.train()
+        optimizer.zero_grad()
+        output = model(batch, kl_weight)
+        output.loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+        return output.loss.item()
+    
+    num_epochs = 100
+    for epoch in range(num_epochs):
+        model.train()
+        running_loss = 0.0
+        for batch in train_loader:
+            loss = train_step(model, batch.to(device), optimizer, kl_weight=1.0)
+            running_loss += loss * batch.size(0)
+        epoch_loss = running_loss / len(train_loader.dataset)
+        if (epoch + 1) % 5 == 0:
+            print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
+
+            model.eval()
+            with torch.no_grad():
+                for batch in test_loader:
+                    batch = batch.to(device)
+                    recon = model(batch)
+                    recon = recon.x_recon
+                    break
+            fig, ax = plt.subplots(2, 7, figsize=(15, 4))
+            for i in range(7):
+                ax[0, i].imshow(batch[i].cpu().numpy().transpose((1, 2, 0)))
+                ax[0, i].axis('off')
+                ax[1, i].imshow(recon[i].cpu().numpy().transpose((1, 2, 0)))
+                ax[1, i].axis('off')
+            ax[0, 0].set_title('Original')
+            ax[1, 0].set_title('Reconstructed')
+            plt.savefig(f'{save_dir}/images/conv_AE_recon-{epoch+1}.png')
+            torch.save(model.state_dict(), f'{save_dir}/VAE.pth')
+
+

@@ -165,8 +165,17 @@ class SynthesizerDataset(Dataset):
         return len(self.data_files)
 
 class AudioDataset(Dataset):
-    
-    def __init__(self, datadir, mean, var, transform=None, data='mfcc', splits=[.8, .1, .1], shuffle_files=True, train='train'):
+    def __init__(self, 
+                 datadir, 
+                 mean, 
+                 var, 
+                 paramsdir,
+                 transform=None, 
+                 data='mfcc', 
+                 splits=[.8, .1, .1], 
+                 shuffle_files=True, 
+                 train='train'):
+        
         self.data = data.split("_") #ex. ["mel", "mfcc"]
         # Metadata and raw
         self.data_files = []
@@ -175,24 +184,14 @@ class AudioDataset(Dataset):
         params = [fname.split('/')[-1][:-4].split('-') for fname in tmp_files]
         # params to dict of params
         params_dicts = []
+        params_names = []
+        with open(paramsdir, "r", encoding="utf-8") as file:
+            for line in file:
+                params_names.append(line.strip())
         for par in params:
             par_dict = {}
-            # par_dict['OSC1: Frequency'] = max(0.0001, min(float(par[0]) , 0.999))
-            # par_dict['OSC2: Frequency'] = max(0.0001, min(float(par[1]) , 0.999))
-            # par_dict['RUN1: Amount'] = max(0.0001, min(float(par[2]) , 0.999))
-            # par_dict['RUN2: Amount'] = max(0.0001, min(float(par[3]) , 0.999))
-            # par_dict['Filter: Frequency'] = max(0.0001, min(float(par[4]) , 0.999))
-            # par_dict['Filter: Resonance'] = max(0.0001, min(float(par[5]) , 0.999))
-            # par_dict['Filter: Rungler_amount'] = max(0.0001, min(float(par[6]) , 0.999))
-            # par_dict['Filter: Sweep'] = max(0.0001, min(float(par[7]) , 0.999))
-            par_dict['FRQ: frequency'] = max(0.0001, min(float(par[0]) , 0.999))
-            par_dict['GRAIN_DUR: grain_duration'] = max(0.0001, min(float(par[1]) , 0.999))
-            par_dict['POS: start_position'] = max(0.0001, min(float(par[2]) , 0.999))
-            par_dict['RATE: rate'] = max(0.0001, min(float(par[3]) , 0.999))
-            par_dict['POS_VAR: position_variance'] = max(0.0001, min(float(par[4]) , 0.999))
-            par_dict['DUR_VAR: duration_variance'] = max(0.0001, min(float(par[5]) , 0.999))
-            par_dict['RATE_VAR: rate_variance'] = max(0.0001, min(float(par[6]) , 0.999))
-            par_dict['TRG_VAR: trigger_variance'] = max(0.0001, min(float(par[7]) , 0.999))
+            for i in range(len(params_names)):
+                par_dict[params_names[i]] = max(0.0001, min(float(par[i]) , 0.999))
             params_dicts.append(par_dict)
         self.params = params_dicts
         self.data_files.extend(tmp_files)
@@ -442,13 +441,11 @@ Load any given dataset and return DataLoaders
 ###################
 """
 def load_dataset(args, **kwargs):
-    if (args.dataset in ['toy'], ["8parBenj"],["8parGranular"],["32par"], ["64par"], ["64par_aug"], ["128par"]):
-        params = {'8parBenj':'8contparams_benjolin.txt', 
-                  '8parGranular':'8contparams_granular.txt',
-                  '32par':'32contparams.txt', 
-                  '64par':'64contparams.txt', 
-                  '64par_aug':'64contparams.txt', 
-                  '128par':'128contparams.txt'}
+    if (args.dataset in ['Theremin'], ["Granular"],["Benjolin"],["Snare"]):
+        params = {'Theremin':'Theremin.txt', 
+                  'Granular':'Granular.txt',
+                  'Benjolin':'Benjolin.txt', 
+                  'Snare':'Snare.txt'}
         with open('synth/params/' + params[args.dataset]) as f: # load list of parameters to not fix
             use_params = [line.strip() for line in f]
         print(use_params)

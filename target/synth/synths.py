@@ -63,7 +63,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--SYNTH_NAME', type=str, default='Theremin',
                         help='synth name among Theremin, Granular, Benjolin, Snare')
-    parser.add_argument('--SAVE_FILEPATH', type=str, default='./00_dataset',
+    parser.add_argument('--SAVE_FILEPATH', type=str, default='./datasets',
                         help='path of where to save the soundfile')
     parser.add_argument('--SYNTH_PARAMETERS', type=str, default='0.5-0.5-0.5-0.5-0.5-0.5',
                         help='Granular parameters')
@@ -88,6 +88,7 @@ if __name__ == "__main__":
     synth_parameters = [float(sy) for sy in synth_parameters]
 
     param_names = synth.getInputs()
+    print(param_names)
     # param_names.remove("gate")
     N_params = len(param_names)
     synth.setParameters(param_names, synth_parameters)

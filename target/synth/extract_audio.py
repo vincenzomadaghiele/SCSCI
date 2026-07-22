@@ -12,30 +12,32 @@ def task(args):
 if __name__ == '__main__': 
 
     # CONFIG
-    SAVE_FILEPATH = './synths/00_dataset'
+    SAVE_FILEPATH = './synths/datasets'
     RECORDING_TIME = 10
     sr = 44100
     hop_size = 256
-    SYNTH_NAME = 'Granular'
+    SYNTH_NAME = 'Theremin'
     SAVE_FILEPATH = f'{SAVE_FILEPATH}/{SYNTH_NAME}'
     os.makedirs(SAVE_FILEPATH, exist_ok=True)
 
-    # COMPUTE ALL PARAMETER COMBINATIONS
-    param_step_for_corpus_gen = 2
+    RANDOM_PERMUTATIONS = True
     N_synth_parameters = 12
-    Benjolin_tot_parameters = 12
-    elements = np.array(range(0, param_step_for_corpus_gen)) / param_step_for_corpus_gen * 0.85 + 0.1
-    permutations = [p for p in itertools.product(elements, repeat=N_synth_parameters)] 
-    ppp = []
-    for pp in permutations:
-        pp = list(pp)
-        pp = list(np.random.rand(N_synth_parameters))
-        for _ in range(Benjolin_tot_parameters - N_synth_parameters):
-            pp.append(0)
-        ppp.append('-'.join([str(p)[:5] for p in pp]))
-    print(len(permutations))
-    permutations = ppp
-    print(permutations[0])
+    if RANDOM_PERMUTATIONS:
+        NUM_SAMPLES = 10000
+        permutations = []
+        for _ in range(NUM_SAMPLES):
+            pp = list(np.random.rand(N_synth_parameters))
+            permutations.append('-'.join([str(p)[:5] for p in pp]))
+    else:
+        # COMPUTE ALL PARAMETER COMBINATIONS
+        param_step_for_corpus_gen = 4
+        elements = np.array(range(0, param_step_for_corpus_gen)) / param_step_for_corpus_gen * 0.85 + 0.1
+        permutations = [p for p in itertools.product(elements, repeat=N_synth_parameters)] 
+        ppp = []
+        for pp in permutations:
+            pp = list(pp)
+            ppp.append('-'.join([str(p)[:5] for p in pp]))
+        permutations = ppp
 
     # COMPUTE COMMANDS TO EXTRACT SOUND
     commands = []

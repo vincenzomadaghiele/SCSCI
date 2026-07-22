@@ -51,19 +51,15 @@ class ResUp(nn.Module):
     def __init__(self, channel_in, channel_out, kernel_size=3, scale_factor=2, norm_type="bn"):
         super(ResUp, self).__init__()
         self.norm1 = get_norm_layer(channel_in, norm_type=norm_type)
-
         self.conv1 = nn.Conv2d(channel_in, (channel_in // 2) + channel_out, kernel_size, 1, kernel_size // 2)
         self.norm2 = get_norm_layer(channel_in // 2, norm_type=norm_type)
-
         self.conv2 = nn.Conv2d(channel_in // 2, channel_out, kernel_size, 1, kernel_size // 2)
-
         self.up_nn = nn.Upsample(scale_factor=scale_factor, mode="nearest")
         self.act_fnc = nn.ELU()
         self.channel_out = channel_out
-
+        
     def forward(self, x_in):
         x = self.up_nn(self.act_fnc(self.norm1(x_in)))
-
         # Combine skip and first conv into one layer for speed
         x_cat = self.conv1(x)
         skip = x_cat[:, :self.channel_out]
@@ -76,19 +72,12 @@ class ResUp(nn.Module):
 
 
 class ResBlock(nn.Module):
-    """
-    Residual block
-    """
-
     def __init__(self, channel_in, channel_out, kernel_size=3, norm_type="bn"):
         super(ResBlock, self).__init__()
         self.norm1 = get_norm_layer(channel_in, norm_type=norm_type)
-
         first_out = channel_in // 2 if channel_in == channel_out else (channel_in // 2) + channel_out
         self.conv1 = nn.Conv2d(channel_in, first_out, kernel_size, 1, kernel_size // 2)
-
         self.norm2 = get_norm_layer(channel_in // 2, norm_type=norm_type)
-
         self.conv2 = nn.Conv2d(channel_in // 2, channel_out, kernel_size, 1, kernel_size // 2)
         self.act_fnc = nn.ELU()
         self.skip = channel_in == channel_out
@@ -96,47 +85,33 @@ class ResBlock(nn.Module):
 
     def forward(self, x_in):
         x = self.act_fnc(self.norm1(x_in))
-
         x_cat = self.conv1(x)
         x = x_cat[:, :self.bttl_nk]
-
         # If channel_in == channel_out we do a simple identity skip
         if self.skip:
             skip = x_in
         else:
             skip = x_cat[:, self.bttl_nk:]
-
         x = self.act_fnc(self.norm2(x))
         x = self.conv2(x)
-
         return x + skip
 
 
 class Encoder(nn.Module):
-    """
-    Encoder block
-    """
-
     def __init__(self, channels, ch=64, blocks=(1, 2, 4, 8), latent_channels=256, num_res_blocks=1, norm_type="bn",
                  deep_model=False):
         super(Encoder, self).__init__()
         self.conv_in = nn.Conv2d(channels, blocks[0] * ch, 3, 1, 1)
-
         widths_in = list(blocks)
         widths_out = list(blocks[1:]) + [2 * blocks[-1]]
-
         self.layer_blocks = nn.ModuleList([])
         for w_in, w_out in zip(widths_in, widths_out):
-
             if deep_model:
                 # Add an additional non down-sampling block before down-sampling
                 self.layer_blocks.append(ResBlock(w_in * ch, w_in * ch, norm_type=norm_type))
-
             self.layer_blocks.append(ResDown(w_in * ch, w_out * ch, norm_type=norm_type))
-
         for _ in range(num_res_blocks):
             self.layer_blocks.append(ResBlock(widths_out[-1] * ch, widths_out[-1] * ch, norm_type=norm_type))
-
         self.conv_mu = nn.Conv2d(widths_out[-1] * ch, latent_channels, 1, 1)
         self.conv_log_var = nn.Conv2d(widths_out[-1] * ch, latent_channels, 1, 1)
         self.act_fnc = nn.ELU()
@@ -148,19 +123,15 @@ class Encoder(nn.Module):
 
     def forward(self, x, sample=False):
         x = self.conv_in(x)
-
         for block in self.layer_blocks:
             x = block(x)
         x = self.act_fnc(x)
-
         mu = self.conv_mu(x)
         log_var = self.conv_log_var(x)
-
         if self.training or sample:
             x = self.sample(mu, log_var)
         else:
             x = mu
-
         return x, mu, log_var
 
 
