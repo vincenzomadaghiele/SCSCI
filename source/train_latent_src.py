@@ -225,46 +225,46 @@ if __name__ == "__main__":
     #                             'optimizer_state_dict': optimizer.state_dict()}, save_dir + save_file_name + ".pt")
     #                 vae_net.train()
 
-    # save_dir = f'corpora/{corpus_name}/trained/AE'
-    # os.makedirs(f'{save_dir}/images', exist_ok=True)
+    save_dir = f'corpora/{corpus_name}/trained/AE'
+    os.makedirs(f'{save_dir}/images', exist_ok=True)
 
-    # model = Autoencoder().to(device)
-    # criterion = nn.MSELoss()
-    # optimizer = optim.Adam(model.parameters(), lr=0.01)
-    # num_epochs = 100
+    model = Autoencoder().to(device)
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    num_epochs = 100
 
-    # for epoch in range(num_epochs):
-    #     model.train()
-    #     running_loss = 0.0
-    #     for images in train_loader:
-    #         images = images.to(device)
-    #         outputs = model(images)
-    #         loss = criterion(outputs, images)
-    #         optimizer.zero_grad()
-    #         loss.backward()
-    #         optimizer.step()
-    #         running_loss += loss.item() * images.size(0)
-    #     epoch_loss = running_loss / len(train_loader.dataset)
-    #     if (epoch + 1) % 5 == 0:
-    #         print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
+    for epoch in range(num_epochs):
+        model.train()
+        running_loss = 0.0
+        for images in train_loader:
+            images = images.to(device)
+            outputs = model(images)
+            loss = criterion(outputs, images)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item() * images.size(0)
+        epoch_loss = running_loss / len(train_loader.dataset)
+        if (epoch + 1) % 5 == 0:
+            print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
 
-    #         model.eval()
-    #         with torch.no_grad():
-    #             for data in test_loader:
-    #                 data = data.to(device)
-    #                 recon = model(data)
-    #                 break
-    #         fig, ax = plt.subplots(2, 7, figsize=(15, 4))
-    #         for i in range(7):
-    #             ax[0, i].imshow(data[i].cpu().numpy().transpose((1, 2, 0)))
-    #             # ax[0, i].imshow(librosa.power_to_db(data[i].cpu().numpy().transpose(1, 2, 0), ref=np.max))
-    #             ax[0, i].axis('off')
-    #             ax[1, i].imshow(recon[i].cpu().numpy().transpose((1, 2, 0)))
-    #             ax[1, i].axis('off')
-    #         ax[0, 0].set_title('Original')
-    #         ax[1, 0].set_title('Reconstructed')
-    #         plt.savefig(f'{save_dir}/images/conv_AE_recon-{epoch+1}.png')
-    #         torch.save(model.state_dict(), f'{save_dir}/conv_AE.pth')
+            model.eval()
+            with torch.no_grad():
+                for data in test_loader:
+                    data = data.to(device)
+                    recon = model(data)
+                    break
+            fig, ax = plt.subplots(2, 7, figsize=(15, 4))
+            for i in range(7):
+                ax[0, i].imshow(data[i].cpu().numpy().transpose((1, 2, 0)))
+                # ax[0, i].imshow(librosa.power_to_db(data[i].cpu().numpy().transpose(1, 2, 0), ref=np.max))
+                ax[0, i].axis('off')
+                ax[1, i].imshow(recon[i].cpu().numpy().transpose((1, 2, 0)))
+                ax[1, i].axis('off')
+            ax[0, 0].set_title('Original')
+            ax[1, 0].set_title('Reconstructed')
+            plt.savefig(f'{save_dir}/images/conv_AE_recon-{epoch+1}.png')
+            torch.save(model.state_dict(), f'{save_dir}/conv_AE.pth')
 
     # model.load_state_dict(torch.load(f'{save_dir}/conv_AE.pth', weights_only=True))
     # # model.eval()
@@ -313,50 +313,50 @@ if __name__ == "__main__":
     # # plt.show()
 
 
-    from models.VAE import VAE
+    # from models.VAE import VAE
     
-    save_dir = f'corpora/{corpus_name}/trained/VAE'
-    os.makedirs(f'{save_dir}/images', exist_ok=True)
+    # save_dir = f'corpora/{corpus_name}/trained/VAE'
+    # os.makedirs(f'{save_dir}/images', exist_ok=True)
 
-    model = VAE(input_dim=64*64, hidden_dim=32, latent_dim=16).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    # model = VAE(input_dim=64*64, hidden_dim=32, latent_dim=16).to(device)
+    # optimizer = optim.Adam(model.parameters(), lr=0.01)
 
-    def train_step(model, batch, optimizer, kl_weight=1.0):
-        model.train()
-        optimizer.zero_grad()
-        output = model(batch, kl_weight)
-        output.loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
-        return output.loss.item()
+    # def train_step(model, batch, optimizer, kl_weight=1.0):
+    #     model.train()
+    #     optimizer.zero_grad()
+    #     output = model(batch, kl_weight)
+    #     output.loss.backward()
+    #     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+    #     optimizer.step()
+    #     return output.loss.item()
     
-    num_epochs = 100
-    for epoch in range(num_epochs):
-        model.train()
-        running_loss = 0.0
-        for batch in train_loader:
-            loss = train_step(model, batch.to(device), optimizer, kl_weight=1.0)
-            running_loss += loss * batch.size(0)
-        epoch_loss = running_loss / len(train_loader.dataset)
-        if (epoch + 1) % 5 == 0:
-            print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
+    # num_epochs = 100
+    # for epoch in range(num_epochs):
+    #     model.train()
+    #     running_loss = 0.0
+    #     for batch in train_loader:
+    #         loss = train_step(model, batch.to(device), optimizer, kl_weight=1.0)
+    #         running_loss += loss * batch.size(0)
+    #     epoch_loss = running_loss / len(train_loader.dataset)
+    #     if (epoch + 1) % 5 == 0:
+    #         print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {epoch_loss:.4f}")
 
-            model.eval()
-            with torch.no_grad():
-                for batch in test_loader:
-                    batch = batch.to(device)
-                    recon = model(batch)
-                    recon = recon.x_recon
-                    break
-            fig, ax = plt.subplots(2, 7, figsize=(15, 4))
-            for i in range(7):
-                ax[0, i].imshow(batch[i].cpu().numpy().transpose((1, 2, 0)))
-                ax[0, i].axis('off')
-                ax[1, i].imshow(recon[i].cpu().numpy().transpose((1, 2, 0)))
-                ax[1, i].axis('off')
-            ax[0, 0].set_title('Original')
-            ax[1, 0].set_title('Reconstructed')
-            plt.savefig(f'{save_dir}/images/conv_AE_recon-{epoch+1}.png')
-            torch.save(model.state_dict(), f'{save_dir}/VAE.pth')
+    #         model.eval()
+    #         with torch.no_grad():
+    #             for batch in test_loader:
+    #                 batch = batch.to(device)
+    #                 recon = model(batch)
+    #                 recon = recon.x_recon
+    #                 break
+    #         fig, ax = plt.subplots(2, 7, figsize=(15, 4))
+    #         for i in range(7):
+    #             ax[0, i].imshow(batch[i].cpu().numpy().transpose((1, 2, 0)))
+    #             ax[0, i].axis('off')
+    #             ax[1, i].imshow(recon[i].cpu().numpy().transpose((1, 2, 0)))
+    #             ax[1, i].axis('off')
+    #         ax[0, 0].set_title('Original')
+    #         ax[1, 0].set_title('Reconstructed')
+    #         plt.savefig(f'{save_dir}/images/conv_AE_recon-{epoch+1}.png')
+    #         torch.save(model.state_dict(), f'{save_dir}/VAE.pth')
 
 

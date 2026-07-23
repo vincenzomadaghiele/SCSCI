@@ -11,5 +11,6 @@
 **.pth
 **.model
 **.pdf
+**.json
 
 .DS_Store
