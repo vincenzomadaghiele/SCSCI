@@ -126,7 +126,7 @@ if __name__ == "__main__":
     hidden_dim = 128
     latent_dim = 8
     lr = 1e-3
-    epochs = 1000
+    epochs = 100
 
     encoder = Encoder(input_dim=image_size_flat, hidden_dim=hidden_dim, latent_dim=latent_dim)
     decoder = Decoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = image_size_flat)
@@ -206,3 +206,16 @@ if __name__ == "__main__":
     plt.ylabel('PCA 2')
     plt.title('Latent space encodings')
     plt.savefig(f'{save_dir}/images/scatter.png')
+
+    with torch.no_grad():
+        noise = torch.randn(batch_size, latent_dim).to(DEVICE)
+        generated_images = model.Decoder(noise)
+        generated_images = generated_images.view(generated_images.shape[0], image_size, image_size)
+
+    fig, ax = plt.subplots(2,8, figsize=(15, 4))
+    for i in range(8):
+        ax[0,i].imshow(generated_images[i].cpu().numpy())
+        ax[0,i].axis('off')
+        ax[1,i].imshow(generated_images[i+8].cpu().numpy())
+        ax[1,i].axis('off')
+    plt.savefig(f'{save_dir}/images/conv_VAE_latent_gen.png')
