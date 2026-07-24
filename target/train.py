@@ -432,7 +432,7 @@ with torch.no_grad():
     # print(pca.explained_variance_ratio_)
     plot_scaler = StandardScaler()
     X_PCA_scaled = plot_scaler.fit_transform(X_PCA)
-    plt.scatter(X_PCA_scaled[:,0], X_PCA_scaled[:,1])
+    plt.scatter(X_PCA_scaled[:,0], X_PCA_scaled[:,1], s=2)
     plt.title("latent space")
     saveVisDir = f"{args.output}/visualize/{model_name}"
     os.makedirs(saveVisDir, exist_ok=True)
