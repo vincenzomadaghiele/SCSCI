@@ -2,13 +2,28 @@ import torch
 from torchvision import transforms
 from utils.transforms import LogTransform, NormalizeTensor
 
-import numpy as np
 import librosa
+import numpy as np
+import matplotlib.pyplot as plt
+import soundfile as sf
 
 from CONSTANTS import *
 from corpus.extract_events import adjustAmplitude, detectOnsets, computeEventFeatures, detectRests, plotEvents
+from synth.synths import Synth
+
+def makeCrownWindow(size):
+    crown_window = np.ones(size)
+    fade_perc = 0.01 # percentage of fade in/out
+    fade_num_samples = int(fade_perc * size)
+    fade_in = np.linspace(0,1,fade_num_samples)
+    fade_out = np.linspace(1,0,fade_num_samples)
+    crown_window[0:fade_num_samples] = fade_in
+    crown_window[crown_window.shape[0]-fade_num_samples:] = fade_out
+    return crown_window
 
 if __name__ == '__main__': 
+
+    SYNTH_NAME = 'Theremin'
 
     # LOAD FLOW MODEL
     device = torch.device('cpu')
@@ -32,10 +47,10 @@ if __name__ == '__main__':
     events = computeEventFeatures( signal, onsets, sr, FFT_window, hop_size, mfcc_N=num_MFCC, mels_N=num_MEL, compute_rests=True )
     last_sample_n = signal.shape[0]-1
     events = detectRests( events, num_MEL, min_event_duration_samples, max_event_duration_samples, FFT_window, hop_size, last_sample_n )
-    # this_file_event = {}
-    # this_file_event['filename'] = filepath
-    # this_file_event['events'] = events
-    # plotEvents(this_file_event, sr)
+    this_file_event = {}
+    this_file_event['filename'] = filepath
+    this_file_event['events'] = events
+    plotEvents(this_file_event, sr)
 
     # RESYNTHESIZE EACH EVENT
     # melspectrogram --> flow --> params --> synth --> 
@@ -46,19 +61,53 @@ if __name__ == '__main__':
     tr.append(NormalizeTensor(mean, var))
     transform = transforms.Compose(tr)
     num_MELS, melspec_size = 64, 80
+    RECORDING_TIME = int(melspec_size * hop_size / sr)
+    RECORDING_TIME = 10
+    synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
+    param_names = synth.getInputs()
+    N_params = len(param_names)
+    original_reconstruct = np.zeros_like(signal)
+    resynthesized_reconstruct = np.zeros_like(signal)
     for event in events:
-        prep_event = np.zeros((num_MELS, melspec_size))
-        prep_event[:event['mel'].shape[0], :event['mel'].shape[1]] = event['mel'][:num_MELS,:melspec_size]
-        event['mel'] = transform(torch.from_numpy(prep_event).float()).to(device)
-        _, z_tilde, _ = model.ae_model(event['mel'].reshape(1, num_MELS, melspec_size)) # latent vector
-        predicted_parameters = model.regression_model(z_tilde) # parameters
-        print(predicted_parameters)
-        # use paramters to resynthesize
-        # call synth and generate output with params and event['duration'] 
-
-
-
-    # RECOMBINE INTO FILE WITH EVENT STARTS
+        # detect rest
+        if event['mel'].mean() != 0:
+            prep_event = np.zeros((num_MELS, melspec_size))
+            prep_event[:event['mel'].shape[0], :event['mel'].shape[1]] = event['mel'][:num_MELS,:melspec_size]
+            event['mel'] = transform(torch.from_numpy(prep_event).float()).to(device)
+            with torch.no_grad():
+                _, z_tilde, _ = model.ae_model(event['mel'].reshape(1, num_MELS, melspec_size)) # latent vector
+                predicted_parameters = model.regression_model(z_tilde) # parameters
+                event['latents'] = z_tilde[0].detach().cpu().numpy() # seq2seq learns from this
+            event['pred_params'] = predicted_parameters[0].detach().cpu().numpy()
+            print(event['pred_params'])
+            # use paramters to resynthesize
+            synth.setParameters(param_names, event['pred_params'].tolist())
+            synthesized_event = synth.forward() # add possibility of 'note off' to handle different durations
+            if synthesized_event.shape[0] > event['event_duration']:
+                event['resynthesized'] = synthesized_event[:event['event_duration']]
+            else:
+                newevent = np.zeros(event['event_duration'])
+                newevent[:synthesized_event.shape[0]] = synthesized_event
+                event['resynthesized'] = newevent
+            # call synth and generate output with params and event['duration']
+            # RECOMBINE INTO FILE WITH EVENT STARTS
+            # fig, ax = plt.subplots(2, figsize=(20, 4))
+            # librosa.display.waveshow(y=signal[event['event_start']:event['event_start']+event['event_duration']], 
+            #                          sr=sr, color="black", x_axis='time', ax=ax[0], alpha=0.2)
+            # librosa.display.waveshow(y=event['resynthesized'], sr=sr, color="black", x_axis='time', ax=ax[1], alpha=0.2)
+            # plt.show()
+            original_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = signal[event['event_start']:event['event_start']+event['event_duration']]
+            resynthesized_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = event['resynthesized'] * makeCrownWindow(event['event_duration'])
+        else:
+            original_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = np.zeros(event['event_duration'])
+            resynthesized_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = np.zeros(event['event_duration'])
+        
+    fig, ax = plt.subplots(2, figsize=(20, 4))
+    librosa.display.waveshow(y=original_reconstruct, sr=sr, color="black", x_axis='time', ax=ax[0], alpha=0.2)
+    librosa.display.waveshow(y=resynthesized_reconstruct, sr=sr, color="black", x_axis='time', ax=ax[1], alpha=0.2)
+    plt.show()
 
     # SAVE AUDIOFILE
-
+    SAVE_FILEPATH = '.'
+    sf.write(f'{SAVE_FILEPATH}/original_reconstruct.wav', original_reconstruct, sr, subtype='PCM_24')
+    sf.write(f'{SAVE_FILEPATH}/resynthesized_reconstruct.wav', resynthesized_reconstruct, sr, subtype='PCM_24')

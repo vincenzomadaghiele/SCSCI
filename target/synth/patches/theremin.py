@@ -32,7 +32,8 @@ class ADSRTheremin(Patch):
         # forward
         self.set_trigger_node(env)
         self.set_output(output)
-        self.set_auto_free(True)
+        # self.set_auto_free(True)
+        self.set_auto_free(False)
 
 if __name__ == "__main__":
 
