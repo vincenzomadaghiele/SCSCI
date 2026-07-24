@@ -331,6 +331,13 @@ class CompSynthesizerDataset(Dataset):
             self.trans_datasets[dtype] = SpecData(datadir, self.spectral_files[dtype], data_type=dtype, transform=transform)
             self.means[dtype] = self.trans_datasets[dtype].mean
             self.vars[dtype] = self.trans_datasets[dtype].var
+
+        import json
+        with open(f"{datadir}/means.json", "w", encoding="utf-8") as file:
+            json.dump(self.means, file)
+        with open(f"{datadir}/vars.json", "w", encoding="utf-8") as file:
+            json.dump(self.vars, file)
+
         # Analyze dataset
         self.analyze_dataset()
         # Create splits

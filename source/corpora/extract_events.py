@@ -4,7 +4,7 @@ import librosa
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from onset_detect import OnsetDetection
+from source.corpora.onset_detect import OnsetDetection
 
 
 def computeFeatures(signal, sample_rate, FFT_window_size, hop_size, 
@@ -69,7 +69,7 @@ def computeEventFeatures(signal, onsets, sample_rate, FFT_window_size, hop_size,
 
 	return events
 
-def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FFT_window_size, hop_size):
+def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FFT_window_size, hop_size, last_sample_n):
 	new_events = []
 	# check for silent start
 	if events[0]['event_start'] > 0:
@@ -150,7 +150,7 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 				total_rest_duration = 0
 	return new_events
 
-def plotEvents(corpus_entry, sample_rate, save_dir, sample_start_s=0, sample_duration_s=None):
+def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sample_duration_s=None):
 	plot_df_src = pd.DataFrame(columns=['mels','event_start','event_duration'])
 	for e in corpus_entry['events']:
 		new_row_data = {} 
@@ -190,8 +190,10 @@ def plotEvents(corpus_entry, sample_rate, save_dir, sample_start_s=0, sample_dur
 	ax.set_ylabel(plot_feature_src)
 	figname = corpus_entry['filename'].split('/')[-1].split('.')[0]
 	ax.set_title(figname)
-	plt.savefig(f'{save_dir}/{figname}.png')
-	# plt.show()
+	if save_dir:
+		plt.savefig(f'{save_dir}/{figname}.png')
+	else:
+		plt.show()
 
 
 
@@ -234,7 +236,8 @@ if __name__ == "__main__":
 								processing_params['min_event_duration_samples'], 
 								processing_params['max_event_duration_samples'],
 								processing_params['FFT_window_size'],
-								processing_params['hop_size'] )
+								processing_params['hop_size'],
+								last_sample_n )
 		this_file_event = {}
 		this_file_event['filename'] = audiofile
 		this_file_event['events'] = new_events

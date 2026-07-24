@@ -9,10 +9,10 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import Dataset, DataLoader
-from torchvision import datasets, transforms
+from torchvision import transforms
 
 
-class CustomImageDataset(Dataset):
+class MelSpectrogramDataset(Dataset):
     def __init__(self, img_dir, transform=None):
         self.img_dir = img_dir
         self.transform = transform
@@ -24,7 +24,6 @@ class CustomImageDataset(Dataset):
         return len(self.corpus_paths)
     def __getitem__(self, idx):
         image = torch.clip(torch.from_numpy((np.load(self.corpus_paths[idx])+80) / 80), min=0, max=1)
-        # image = torch.from_numpy(np.load(self.corpus_paths[0]) / 80)
         image = torch.unsqueeze(image, 0).to(torch.float32)
         if self.transform:
             image = self.transform(image)
@@ -85,7 +84,7 @@ if __name__ == "__main__":
         DEVICE = torch.device("mps")
 
     # load data
-    corpus_name = 'myvoice'
+    corpus_name = 'guitar'
     data_path = f'corpora/{corpus_name}/info/mel'
     corpus_paths = []
     for file in os.listdir(data_path):
@@ -100,7 +99,6 @@ if __name__ == "__main__":
         for event in corpus_file:
             if event['mel'].mean() != 0:
                 mel = librosa.power_to_db(event['mel'], ref=np.max)
-                # mel = np.log(event['mel'] + 1e-7)
                 mels.append(mel)
                 np.save(f'./{save_full_mels_path}/event-{i}.npy', np.array(mel))
                 i += 1
@@ -110,7 +108,7 @@ if __name__ == "__main__":
     image_size = 64
     print("-Target Image Size: %d" % image_size)
     transform = transforms.Compose([transforms.Resize(image_size), transforms.CenterCrop(image_size)])
-    data_set = CustomImageDataset(save_full_mels_path, transform=transform)
+    data_set = MelSpectrogramDataset(save_full_mels_path, transform=transform)
     test_split = 0.9
     n_train_examples = int(len(data_set) * test_split)
     n_test_examples = len(data_set) - n_train_examples
@@ -126,7 +124,7 @@ if __name__ == "__main__":
     hidden_dim = 128
     latent_dim = 8
     lr = 1e-3
-    epochs = 100
+    epochs = 500
 
     encoder = Encoder(input_dim=image_size_flat, hidden_dim=hidden_dim, latent_dim=latent_dim)
     decoder = Decoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = image_size_flat)
@@ -139,7 +137,8 @@ if __name__ == "__main__":
         return reproduction_loss + KLD
 
     optimizer = Adam(model.parameters(), lr=lr)
-    save_dir = f'corpora/{corpus_name}/trained/VAE'
+    model_name = 'VAE'
+    save_dir = f'corpora/{corpus_name}/trained/{model_name}'
     os.makedirs(f'{save_dir}/images', exist_ok=True)
 
     print("Start training VAE...")
@@ -175,8 +174,8 @@ if __name__ == "__main__":
                 ax[1, i].axis('off')
             ax[0, 0].set_title('Original')
             ax[1, 0].set_title('Reconstructed')
-            plt.savefig(f'{save_dir}/images/conv_VAE_recon-{epoch+1}.png')
-            torch.save(model.state_dict(), f'{save_dir}/conv_VAE.pth')
+            plt.savefig(f'{save_dir}/images/{model_name}_recon-{epoch+1}.png')
+            torch.save(model.state_dict(), f'{save_dir}/{model_name}.pth')
         losses.append(overall_loss / ((batch_idx+1)*batch_size))
 
     model.eval()
