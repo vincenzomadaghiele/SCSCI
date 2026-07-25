@@ -291,7 +291,6 @@ if __name__ == "__main__":
 		corpus_dirs = [c for c in corpus_dirs if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full']]
 		corpus_files = [f'{corpus_path}/{song_name}/{track_name}.wav' for song_name in corpus_dirs]
 		for song_name in corpus_dirs:
-			# if song_name not in ['info','trained_VAE','.DS_Store']:
 			os.makedirs(f'{corpus_path}/{song_name}/mel', exist_ok=True)
 			os.makedirs(f'{corpus_path}/{song_name}/img', exist_ok=True)
 
