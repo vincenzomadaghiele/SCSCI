@@ -1,11 +1,14 @@
 import os
+import sys
 import json
 import librosa
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from corpus.onset_detect import OnsetDetection
+from onset_detect import OnsetDetection
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from CONSTANTS import *
 
 def computeFeatures(signal, sample_rate, FFT_window_size, hop_size, 
 					mfcc_N=16, mels_N=64, compute_rests=False, 
@@ -118,7 +121,7 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 						if total_rest_duration > min_rest_length_samples:
 							new_row_data['event_start'] = start_counter 
 							new_row_data['event_duration'] = total_rest_duration
-							new_row_data['mel'] = np.zeros((num_MEL, librosa.samples_to_frames(new_row_data['event_duration'], hop_length=hop_size, n_fft=FFT_window_size)))
+							new_row_data['mel'] = np.zeros((num_MEL, np.clip(librosa.samples_to_frames(new_row_data['event_duration'], hop_length=hop_size, n_fft=FFT_window_size), a_min=0, a_max=None)))
 							new_events.append(new_row_data)
 						start_counter += max_length_samples
 						total_rest_duration -= max_length_samples
@@ -195,55 +198,60 @@ def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sampl
 	else:
 		plt.show()
 
-
-
 if __name__ == "__main__":
 
-	processing_params = {}
-	processing_params['sample_rate'] = 22050
-	processing_params['FFT_window_size'] = 512
-	processing_params['hop_size'] = 256
-	processing_params['num_MFCC'] = 16
-	processing_params['num_MEL'] = 64
-	processing_params['silence_threshold'] = 0.001
-	processing_params['max_event_duration_samples'] = 88200
-	processing_params['min_event_duration_samples'] = 882
-
 	# extract 
-	corpus_path = 'corpora/guitar'
-	corpus_files = os.listdir(corpus_path)
-	corpus_files = [f'{corpus_path}/{filename}' for filename in corpus_files if filename[-4:] == '.wav']
-	save_dir = f'{corpus_path}/info'
-	os.makedirs(save_dir, exist_ok=True)
-	os.makedirs(f'{save_dir}/mel', exist_ok=True)
-	os.makedirs(f'{save_dir}/img', exist_ok=True)
-	with open(f'{save_dir}/featureExtraction_params.json', 'w', encoding='utf-8') as f:
+	corpus_name = 'guitar-duo'
+	track_name = 'guitar1'
+	corpus_path = f'corpus/{corpus_name}'
+	corpus_dirs = os.listdir(corpus_path)
+	corpus_dirs = [c for c in corpus_dirs if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store']]
+	corpus_files = [f'{corpus_path}/{song_name}/{track_name}.wav' for song_name in corpus_dirs]
+	for song_name in corpus_dirs:
+		# if song_name not in ['info','trained_VAE','.DS_Store']:
+		os.makedirs(f'{corpus_path}/{song_name}/mel', exist_ok=True)
+		os.makedirs(f'{corpus_path}/{song_name}/img', exist_ok=True)
+
+
+	# save processing parameters
+	processing_params = {}
+	processing_params['sample_rate'] = sr
+	processing_params['FFT_window_size'] = FFT_window
+	processing_params['hop_size'] = hop_size
+	processing_params['num_MFCC'] = num_MFCC
+	processing_params['num_MEL'] = num_MEL
+	processing_params['silence_threshold'] = silence_threshold
+	processing_params['max_event_duration_samples'] = max_event_duration_samples
+	processing_params['min_event_duration_samples'] = min_event_duration_samples
+	with open(f'{corpus_path}/featureExtraction_params.json', 'w', encoding='utf-8') as f:
 		json.dump(processing_params, f, ensure_ascii=False, indent=4)
 
 	corpus_events = []
 	for audiofile in corpus_files:
 		trackname = audiofile.split('/')[-1].split('.')[0]
-		signal, _ = librosa.load(audiofile, sr=processing_params['sample_rate'], mono=True)
-		signal = adjustAmplitude(signal, processing_params['FFT_window_size'], processing_params['hop_size'])
+		song_name = audiofile.split('/')[-2]
+		signal, _ = librosa.load(audiofile, sr=sr, mono=True)
+		signal = adjustAmplitude(signal, FFT_window, hop_size)
 		print(f'Loading audiofile {audiofile} with length {signal.shape[0]} samples')
-		onsets = detectOnsets(signal, processing_params['sample_rate'], 
-							min_event_duration_samples=processing_params['min_event_duration_samples'])
+		onsets = detectOnsets(signal, sr, 
+							min_event_duration_samples=min_event_duration_samples)
 		print(f'detected {len(onsets)} onsets...')
-		events = computeEventFeatures(signal, onsets, processing_params['sample_rate'], processing_params['FFT_window_size'], 
-								processing_params['hop_size'], mfcc_N=processing_params['num_MFCC'], mels_N=processing_params['num_MEL'], compute_rests=True)
+		events = computeEventFeatures(signal, onsets, sr, FFT_window, 
+								hop_size, mfcc_N=num_MFCC, mels_N=num_MEL, compute_rests=True)
 		last_sample_n = signal.shape[0]-1
-		new_events = detectRests(events, processing_params['num_MEL'], 
-								processing_params['min_event_duration_samples'], 
-								processing_params['max_event_duration_samples'],
-								processing_params['FFT_window_size'],
-								processing_params['hop_size'],
+		new_events = detectRests(events, num_MEL, 
+								min_event_duration_samples, 
+								max_event_duration_samples,
+								FFT_window,
+								hop_size,
 								last_sample_n )
 		this_file_event = {}
 		this_file_event['filename'] = audiofile
+		this_file_event['song_name'] = song_name
 		this_file_event['events'] = new_events
-		np.save(f'./{corpus_path}/info/mel/{trackname}.npy', np.array(new_events, dtype=object), allow_pickle=True)
+		np.save(f'./{corpus_path}/{song_name}/mel/{trackname}.npy', np.array(new_events, dtype=object), allow_pickle=True)
 		corpus_events.append(this_file_event)
 
 	for corpus_entry in corpus_events:
-		plotEvents(corpus_entry, processing_params['sample_rate'], save_dir=f'./{corpus_path}/info/img')
+		plotEvents(corpus_entry, sr, save_dir=f'./{corpus_path}/{corpus_entry["song_name"]}/img')
 

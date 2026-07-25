@@ -18,7 +18,7 @@ from models.vae.wae import WAE
 from models.vae.vae_flow import VAEFlow
 from models.loss import multinomial_loss, multinomial_mse_loss
 from models.basic import GatedMLP, GatedCNN, construct_encoder_decoder, construct_flow, construct_regressor, construct_disentangle
-from evaluate import evaluate_model
+from flow_evaluate import evaluate_model
 
 # Define arguments
 parser = argparse.ArgumentParser()

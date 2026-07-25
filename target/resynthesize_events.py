@@ -119,3 +119,5 @@ if __name__ == '__main__':
     sf.write(f'{SAVE_FILEPATH}/{tgt_track_name}_resynthesized.wav', resynthesized_reconstruct, sr, subtype='PCM_24')
 
     # save pre-processed event duos (w. src-latents, tgt-latents + models used)
+    # better multi-voice synth with duration envelope
+    
