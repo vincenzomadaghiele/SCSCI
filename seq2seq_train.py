@@ -21,57 +21,57 @@ from transformer.transformerDiscreteT2V import TransformerDiscreteT2V
 
 
 def batchify(data, batch_size=16):
-	# return batches of dim (batch_size, seq_length, num_feats)
-	batches = []
-	for i in range(0, len(data)-batch_size, batch_size):
-		this_batch_X = []
-		this_batch_y = []
-		this_batch_y_tgt = []
-		for k in range(batch_size):
-			this_batch_X.append(data[i+k][0])
-			this_batch_y.append(data[i+k][1])
-			this_batch_y_tgt.append(data[i+k][2])
-		batches.append([np.array(this_batch_X),np.array(this_batch_y),np.array(this_batch_y_tgt)])
-	print(f"{len(batches)} batches of size {batch_size}")
-	return batches
+    # return batches of dim (batch_size, seq_length, num_feats)
+    batches = []
+    for i in range(0, len(data)-batch_size, batch_size):
+        this_batch_X = []
+        this_batch_y = []
+        this_batch_y_tgt = []
+        for k in range(batch_size):
+            this_batch_X.append(data[i+k][0])
+            this_batch_y.append(data[i+k][1])
+            this_batch_y_tgt.append(data[i+k][2])
+        batches.append([np.array(this_batch_X),np.array(this_batch_y),np.array(this_batch_y_tgt)])
+    print(f"{len(batches)} batches of size {batch_size}")
+    return batches
 
 
 # train and validation loops
 def trainLoop(model, train_dataloader, loss_fn, opt, device, PAD_TOKEN):
-	model.train()
-	total_loss = 0
-	for batch in train_dataloader:
-		X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
-		y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
-		y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(batch[2].shape[0],1,batch[2].shape[1])
-		# generate pad mask before t2v (t2v is non-linear and padding has to be applied before)
-		src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device)
-		tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device)
-		tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
-		pred = model(X, y, tgt_mask=tgt_mask, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
-		loss = loss_fn(pred, y_expected)
-		opt.zero_grad()
-		loss.backward()
-		opt.step()
-		total_loss += loss.detach().item()
-	return total_loss / len(train_dataloader)
+    model.train()
+    total_loss = 0
+    for batch in train_dataloader:
+        X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
+        y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
+        y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(batch[2].shape[0],1,batch[2].shape[1])
+        # generate pad mask before t2v (t2v is non-linear and padding has to be applied before)
+        src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device)
+        tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device)
+        tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
+        pred = model(X, y, tgt_mask=tgt_mask, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
+        loss = loss_fn(pred, y_expected)
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+        total_loss += loss.detach().item()
+    return total_loss / len(train_dataloader)
 
 def validationLoop(model, val_dataloader, loss_fn, opt, device, PAD_TOKEN):
-	model.eval()
-	total_loss = 0
-	with torch.no_grad():
-		for batch in val_dataloader:
-			X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
-			y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
-			y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(batch[2].shape[0],1,batch[2].shape[1])
-			# generate pad mask before t2v (t2v is non-linear and padding has to be applied before)
-			src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device)
-			tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device)
-			tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
-			pred = model(X, y, tgt_mask=tgt_mask, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
-			loss = loss_fn(pred, y_expected)
-			total_loss += loss.detach().item()
-	return total_loss / len(val_dataloader)
+    model.eval()
+    total_loss = 0
+    with torch.no_grad():
+        for batch in val_dataloader:
+            X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
+            y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
+            y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(batch[2].shape[0],1,batch[2].shape[1])
+            # generate pad mask before t2v (t2v is non-linear and padding has to be applied before)
+            src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device)
+            tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device)
+            tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
+            pred = model(X, y, tgt_mask=tgt_mask, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
+            loss = loss_fn(pred, y_expected)
+            total_loss += loss.detach().item()
+    return total_loss / len(val_dataloader)
 
 
 if __name__ == '__main__': 
@@ -119,17 +119,16 @@ if __name__ == '__main__':
     features_source.append('event_duration')
     features_target = [f'latent-{j}' for j in range(N_latents_tgt)]
     features_target.append('event_duration')
-    logdir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}'
-    os.makedirs(logdir, exist_ok=True)
 
     # MAKE SAVE DIRECTORY
     today = date.today()
     model_name = f'{int(time.time())}-transformerDiscreteT2V'
+    logdir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{model_name}'
     os.makedirs(logdir, exist_ok=True)
     with open(f'{logdir}/training_config.json', 'w', encoding='utf-8') as f:
         json.dump(training_parameters, f, ensure_ascii=False, indent=4)
 
-	# LOAD CORPUS
+    # LOAD CORPUS
     source_corpus_df = pd.read_csv(f"{corpus_path}/src_events.csv", index_col=0)
     target_corpus_df = pd.read_csv(f"{corpus_path}/tgt_events.csv", index_col=0)
     src_signals_dfs = []

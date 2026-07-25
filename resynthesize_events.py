@@ -2,6 +2,7 @@ import torch
 from torchvision import transforms
 from utils.transforms import LogTransform, NormalizeTensor
 
+import os
 import json
 import librosa
 import numpy as np
@@ -36,7 +37,7 @@ if __name__ == '__main__':
 
     # LOAD AUDIO TRACK
     corpus_name = 'guitar-duo'
-    song_name = 'recording1'
+    song_name = 'recording4'
     src_track_name = 'guitar1'
     tgt_track_name = 'guitar2'
     filepath = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}.wav'
@@ -53,7 +54,7 @@ if __name__ == '__main__':
     this_file_event = {}
     this_file_event['filename'] = filepath
     this_file_event['events'] = events
-    plotEvents(this_file_event, sr)
+    # plotEvents(this_file_event, sr)
 
     # LOAD DATASET STATS FOR NORMALIZATION
     data_stats_path = f'./synth/datasets/{SYNTH_NAME}/means.json'
@@ -90,7 +91,6 @@ if __name__ == '__main__':
                 predicted_parameters = model.regression_model(z_tilde) # parameters
                 event['latents'] = z_tilde[0].detach().cpu().numpy() # seq2seq learns from this
             event['pred_params'] = predicted_parameters[0].detach().cpu().numpy()
-            print(event['pred_params'])
             # use paramters to resynthesize
             synth.setParameters(param_names, event['pred_params'].tolist())
             synthesized_event = synth.forward() # add possibility of 'note off' to handle different durations
@@ -107,16 +107,16 @@ if __name__ == '__main__':
             original_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = np.zeros(event['event_duration'])
             resynthesized_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = np.zeros(event['event_duration'])
     
+    # SAVE AUDIOFILE
+    SAVE_FILEPATH = f'./corpus/{corpus_name}/{song_name}/resynthesized'
+    os.makedirs(SAVE_FILEPATH, exist_ok=True)
+    sf.write(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.wav', resynthesized_reconstruct, sr, subtype='PCM_24')
+
     # MAKE DUAL FIGURE
     fig, ax = plt.subplots(2, figsize=(20, 4))
     librosa.display.waveshow(y=original_reconstruct, sr=sr, color="black", x_axis='time', ax=ax[0], alpha=0.2)
     librosa.display.waveshow(y=resynthesized_reconstruct, sr=sr, color="black", x_axis='time', ax=ax[1], alpha=0.2)
-    plt.show()
-
-    # SAVE AUDIOFILE
-    SAVE_FILEPATH = f'./corpus/{corpus_name}/{song_name}'
-    # sf.write(f'{SAVE_FILEPATH}/original_reconstruct.wav', original_reconstruct, sr, subtype='PCM_24')
-    sf.write(f'{SAVE_FILEPATH}/{tgt_track_name}_resynthesized.wav', resynthesized_reconstruct, sr, subtype='PCM_24')
+    fig.savefig(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.png')
 
     # save pre-processed event duos (w. src-latents, tgt-latents + models used)
     

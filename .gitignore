@@ -16,4 +16,4 @@
 **.csv
 **.DS_Store
 
-target/transformer/trained/**
+transformer/trained/**

@@ -99,6 +99,7 @@ if __name__ == "__main__":
         corpus_file = np.load(file, allow_pickle=True)
         for event in corpus_file:
             if event['mel'].mean() != 0 and event['mel'].shape[1] > 0:
+            # if event['mel'].shape[1] > 0:
                 mel = librosa.power_to_db(event['mel'], ref=np.max)
                 mels.append(mel)
                 np.save(f'./{save_full_mels_path}/event-{i}.npy', np.array(mel))

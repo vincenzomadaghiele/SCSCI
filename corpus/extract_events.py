@@ -5,7 +5,7 @@ import librosa
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from onset_detect import OnsetDetection
+from corpus.onset_detect import OnsetDetection
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from CONSTANTS import *
@@ -156,11 +156,12 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sample_duration_s=None):
 	plot_df_src = pd.DataFrame(columns=['mels','event_start','event_duration'])
 	for e in corpus_entry['events']:
-		new_row_data = {} 
-		new_row_data['mels'] = e['mel'].mean()
-		new_row_data['event_start'] = e['event_start']
-		new_row_data['event_duration'] = e['event_duration']
-		plot_df_src = pd.concat([plot_df_src, pd.DataFrame([new_row_data])], ignore_index=True)
+		if e['mel'].shape[0] > 0:
+			new_row_data = {} 
+			new_row_data['mels'] = e['mel'].mean()
+			new_row_data['event_start'] = e['event_start']
+			new_row_data['event_duration'] = e['event_duration']
+			plot_df_src = pd.concat([plot_df_src, pd.DataFrame([new_row_data])], ignore_index=True)
 
 	signal, _ = librosa.load(corpus_entry['filename'], sr=sample_rate, mono=True)
 
@@ -177,9 +178,9 @@ def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sampl
 
 	fig, ax = plt.subplots(1, figsize=(20, 4))
 	if sample_duration_s and (sample_start+sample_duration) < signal.shape[0]:
-		librosa.display.waveshow(y=signal[sample_start:sample_start+sample_duration], sr=sample_rate, color="black", x_axis='time', ax=ax, alpha=0.2)
+		librosa.display.waveshow(y=signal[sample_start:sample_start+sample_duration], sr=sample_rate, color="black", axis='time', ax=ax, alpha=0.2)
 	elif sample_start < signal.shape[0]:
-		librosa.display.waveshow(y=signal[sample_start:], sr=sample_rate, color="black", x_axis='time', ax=ax, alpha=0.2)
+		librosa.display.waveshow(y=signal[sample_start:], sr=sample_rate, color="black", axis='time', ax=ax, alpha=0.2)
 	ax.scatter(librosa.samples_to_time(plot_df_src['event_start'], sr=sample_rate), 
 				y=plot_df_src[plot_feature_src], label=plot_feature_src, edgecolors='r', facecolors='none')
 	ax.hlines(y=plot_df_src[plot_feature_src],
@@ -201,11 +202,12 @@ def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sampl
 def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sample_duration_s=None):
 	plot_df_src = pd.DataFrame(columns=['mels','event_start','event_duration'])
 	for e in src_corpus_entry['events']:
-		new_row_data = {} 
-		new_row_data['mels'] = e['mel'].mean()
-		new_row_data['event_start'] = e['event_start']
-		new_row_data['event_duration'] = e['event_duration']
-		plot_df_src = pd.concat([plot_df_src, pd.DataFrame([new_row_data])], ignore_index=True)
+		if e['mel'].shape[0] > 0:
+			new_row_data = {} 
+			new_row_data['mels'] = e['mel'].mean()
+			new_row_data['event_start'] = e['event_start']
+			new_row_data['event_duration'] = e['event_duration']
+			plot_df_src = pd.concat([plot_df_src, pd.DataFrame([new_row_data])], ignore_index=True)
 	signal_src, _ = librosa.load(src_corpus_entry['filename'], sr=sample_rate, mono=True)
 	sample_start = sample_start_s * sample_rate
 	if sample_duration_s:
@@ -235,16 +237,16 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 		plot_df_tgt = plot_df_tgt[plot_df_tgt['event_start'] < sample_start+sample_duration]
 	plot_df_tgt['event_start'] = plot_df_tgt['event_start'] - sample_start
 
-	fig, ax = plt.subplots(2, figsize=(20, 4))
+	fig, ax = plt.subplots(2, figsize=(16, 6))
 	if sample_duration_s and (sample_start+sample_duration) < signal_src.shape[0]:
-		librosa.display.waveshow(y=signal_src[sample_start:sample_start+sample_duration], sr=sample_rate, color="black", x_axis='time', ax=ax[0], alpha=0.2)
+		librosa.display.waveshow(y=signal_src[sample_start:sample_start+sample_duration], sr=sample_rate, color="black", axis='time', ax=ax[0], alpha=0.2)
 	elif sample_start < signal_src.shape[0]:
-		librosa.display.waveshow(y=signal_src[sample_start:], sr=sample_rate, color="black", x_axis='time', ax=ax[0], alpha=0.2)
+		librosa.display.waveshow(y=signal_src[sample_start:], sr=sample_rate, color="black", axis='time', ax=ax[0], alpha=0.2)
 
 	if sample_duration_s and (sample_start+sample_duration) < signal_tgt.shape[0]:
-		librosa.display.waveshow(y=signal_tgt[sample_start:sample_start+sample_duration], sr=sample_rate, color="black", x_axis='time', ax=ax[1], alpha=0.2)
+		librosa.display.waveshow(y=signal_tgt[sample_start:sample_start+sample_duration], sr=sample_rate, color="black", axis='time', ax=ax[1], alpha=0.2)
 	elif sample_start < signal_tgt.shape[0]:
-		librosa.display.waveshow(y=signal_tgt[sample_start:], sr=sample_rate, color="black", x_axis='time', ax=ax[1], alpha=0.2)
+		librosa.display.waveshow(y=signal_tgt[sample_start:], sr=sample_rate, color="black", axis='time', ax=ax[1], alpha=0.2)
 
 	ax[0].scatter(librosa.samples_to_time(plot_df_src['event_start'], sr=sample_rate), 
 				y=plot_df_src[plot_feature_src], label=plot_feature_src, edgecolors='r', facecolors='none')
@@ -265,8 +267,10 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 		-1, 1, color='b', alpha=0.1, linestyle='--', label='onsets', linewidth=0.5)
 
 	ax[0].legend()
+	ax[1].legend()
 	ax[0].set_ylabel(plot_feature_src)
-	ax[0].set_ylabel(plot_feature_tgt)
+	ax[1].set_ylabel(plot_feature_tgt)
+	ax[0].set_xlabel([])
 	ax[1].set_xlabel('time [s]')
 	ax[0].set_title(src_corpus_entry['filename'].split('/')[-1].split('.')[0])
 	ax[1].set_title(tgt_corpus_entry['filename'].split('/')[-1].split('.')[0])
