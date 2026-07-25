@@ -276,6 +276,22 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	else:
 		plt.show()
 
+def extractEvents(signal, 
+				  FFT_window, 
+				  sr, 
+				  hop_size, 
+				  num_MFCC, 
+				  num_MEL, 
+				  min_event_duration_samples, 
+				  max_event_duration_samples):
+	signal = adjustAmplitude(signal, FFT_window, hop_size)
+	onsets = detectOnsets(signal, sr, min_event_duration_samples=min_event_duration_samples)
+	print(f'detected {len(onsets)} onsets...')
+	events = computeEventFeatures(signal, onsets, sr, FFT_window, hop_size, mfcc_N=num_MFCC, mels_N=num_MEL, compute_rests=True)
+	last_sample_n = signal.shape[0]-1
+	new_events = detectRests(events, num_MEL, min_event_duration_samples, max_event_duration_samples, FFT_window, hop_size, last_sample_n )
+	return new_events
+
 
 if __name__ == "__main__":
 
@@ -311,20 +327,19 @@ if __name__ == "__main__":
 			trackname = audiofile.split('/')[-1].split('.')[0]
 			song_name = audiofile.split('/')[-2]
 			signal, _ = librosa.load(audiofile, sr=sr, mono=True)
-			signal = adjustAmplitude(signal, FFT_window, hop_size)
-			print(f'Loading audiofile {audiofile} with length {signal.shape[0]} samples')
-			onsets = detectOnsets(signal, sr, 
-								min_event_duration_samples=min_event_duration_samples)
-			print(f'detected {len(onsets)} onsets...')
-			events = computeEventFeatures(signal, onsets, sr, FFT_window, 
-									hop_size, mfcc_N=num_MFCC, mels_N=num_MEL, compute_rests=True)
-			last_sample_n = signal.shape[0]-1
-			new_events = detectRests(events, num_MEL, 
-									min_event_duration_samples, 
-									max_event_duration_samples,
-									FFT_window,
-									hop_size,
-									last_sample_n )
+			new_events = extractEvents(signal, 
+							  			FFT_window, sr, hop_size, 
+							  			num_MFCC, num_MEL, 
+										min_event_duration_samples, max_event_duration_samples)
+
+			# signal = adjustAmplitude(signal, FFT_window, hop_size)
+			# print(f'Loading audiofile {audiofile} with length {signal.shape[0]} samples')
+			# onsets = detectOnsets(signal, sr, min_event_duration_samples=min_event_duration_samples)
+			# print(f'detected {len(onsets)} onsets...')
+			# events = computeEventFeatures(signal, onsets, sr, FFT_window, hop_size, mfcc_N=num_MFCC, mels_N=num_MEL, compute_rests=True)
+			# last_sample_n = signal.shape[0]-1
+			# new_events = detectRests(events, num_MEL, min_event_duration_samples, max_event_duration_samples,
+			# 						FFT_window, hop_size, last_sample_n )
 			this_file_event = {}
 			this_file_event['filename'] = audiofile
 			this_file_event['song_name'] = song_name

@@ -1,1 +1,0 @@
-fine-tune a transformer seq2seq on selected examples of co-playing behaviors
