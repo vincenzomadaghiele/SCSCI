@@ -1,135 +1,347 @@
 import os
+import time
 import json
+import joblib
 import numpy as np
 import pandas as pd
 
+from datetime import date
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import f1_score
+from sklearn.metrics import r2_score
+
 import torch
-from torchvision import transforms
-from utils.transforms import LogTransform, NormalizeTensor
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.utils.tensorboard import SummaryWriter
 
 from CONSTANTS import * 
-from VAE_train import Encoder, Decoder, Model
+from transformer.transformerDiscreteT2V import TransformerDiscreteT2V
+
+
+def batchify(data, batch_size=16):
+	# return batches of dim (batch_size, seq_length, num_feats)
+	batches = []
+	for i in range(0, len(data)-batch_size, batch_size):
+		this_batch_X = []
+		this_batch_y = []
+		this_batch_y_tgt = []
+		for k in range(batch_size):
+			this_batch_X.append(data[i+k][0])
+			this_batch_y.append(data[i+k][1])
+			this_batch_y_tgt.append(data[i+k][2])
+		batches.append([np.array(this_batch_X),np.array(this_batch_y),np.array(this_batch_y_tgt)])
+	print(f"{len(batches)} batches of size {batch_size}")
+	return batches
+
+
+# train and validation loops
+def trainLoop(model, train_dataloader, loss_fn, opt, device, PAD_TOKEN):
+	model.train()
+	total_loss = 0
+	for batch in train_dataloader:
+		X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
+		y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
+		y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(batch[2].shape[0],1,batch[2].shape[1])
+		# generate pad mask before t2v (t2v is non-linear and padding has to be applied before)
+		src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device)
+		tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device)
+		tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
+		pred = model(X, y, tgt_mask=tgt_mask, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
+		loss = loss_fn(pred, y_expected)
+		opt.zero_grad()
+		loss.backward()
+		opt.step()
+		total_loss += loss.detach().item()
+	return total_loss / len(train_dataloader)
+
+def validationLoop(model, val_dataloader, loss_fn, opt, device, PAD_TOKEN):
+	model.eval()
+	total_loss = 0
+	with torch.no_grad():
+		for batch in val_dataloader:
+			X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
+			y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
+			y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(batch[2].shape[0],1,batch[2].shape[1])
+			# generate pad mask before t2v (t2v is non-linear and padding has to be applied before)
+			src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device)
+			tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device)
+			tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
+			pred = model(X, y, tgt_mask=tgt_mask, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
+			loss = loss_fn(pred, y_expected)
+			total_loss += loss.detach().item()
+	return total_loss / len(val_dataloader)
+
 
 if __name__ == '__main__': 
 
+    # device 
     DEVICE = torch.device("cpu")
+    if torch.cuda.is_available():
+        DEVICE = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        DEVICE = torch.device("mps")
 
-    # LOAD EVENT SEQUENCES CORPUS
     corpus_name = 'guitar-duo'
+    corpus_path = f'corpus/{corpus_name}'
     src_track_name = 'guitar1'
     tgt_track_name = 'guitar2'
-    corpus_path = f'corpus/{corpus_name}'
-    song_names = os.listdir(corpus_path)
-    src_tgt = []
-    song_names = [c for c in song_names if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full']]
-    song_names.sort()
-    src_corpus_files = [f'{corpus_path}/{song_name}/mel/{src_track_name}.npy' for song_name in song_names]
-    tgt_corpus_files = [f'{corpus_path}/{song_name}/mel/{tgt_track_name}.npy' for song_name in song_names]
-
-    # LOAD VAE
-    VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
-    hidden_dim = 128 # load these from pre-saved JSON
     latent_dim = 8
-    image_size = 64
-    image_size_flat = image_size * image_size
-    encoder = Encoder(input_dim=image_size_flat, hidden_dim=hidden_dim, latent_dim=latent_dim)
-    decoder = Decoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = image_size_flat)
-    VAE_model = Model(Encoder=encoder, Decoder=decoder).to(DEVICE)
-    VAE_model.load_state_dict(torch.load(VAE_model_name, weights_only=True))
-    VAE_model.eval()
-
-
-    # LOAD FLOW MODEL
+    N_latents_tgt = 5
     SYNTH_NAME = 'Theremin'
-    model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
-    model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
-    flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
-    flow_model.eval()
-    # LOAD DATASET STATS FOR NORMALIZATION
-    data_stats_path = f'./synth/datasets/{SYNTH_NAME}/means.json'
-    with open(f'./synth/datasets/{SYNTH_NAME}/means.json') as f:
-        d = json.load(f)
-        mean = d['mel']
-    with open(f'./synth/datasets/{SYNTH_NAME}/vars.json') as f:
-        d = json.load(f)
-        var = d['mel']
-    N_latents_tgt = 5 # retreive this from flow train JSON
-
-
-    # COMPUTE LATENTS
-    # compute src latents using VAE
-    transform = transforms.Compose([transforms.Resize(image_size), transforms.CenterCrop(image_size)])
-    src_events = []
-    for song in src_corpus_files:
-        event_sequence = np.load(song, allow_pickle=True)
-        for event in event_sequence:
-            # detect rest
-            if event['mel'].mean() != 0 and event['mel'].shape[1] > 0:
-                prep_event = torch.clip(torch.from_numpy((event['mel']+80) / 80), min=0, max=1)
-                prep_event = torch.unsqueeze(prep_event, 0).to(torch.float32)
-                prep_event = transform(prep_event)
-                prep_event = prep_event.reshape(prep_event.shape[0], image_size_flat).to(DEVICE)
-                with torch.no_grad():
-                    event_latents, _ = VAE_model.Encoder(prep_event)
-                event_latents = event_latents[0].detach().cpu().numpy().tolist()
-            else:
-                event_latents = np.zeros(latent_dim).tolist()
-            event_latents.append(event['event_duration'])
-            event_latents.append(event['event_start'])
-            event_latents.append(song)
-            src_events.append(event_latents)
-    src_events = np.array(src_events)
-    print(src_events.shape)
-    columns = [f'latent-{j}' for j in range(src_events.shape[1]-3)]
-    columns.append('event_duration')
-    columns.append('event_start')
-    columns.append('filename')
-    df_tgt = pd.DataFrame(src_events, columns=columns)
-    print(df_tgt.head())
-    df_tgt.to_csv(f"{corpus_path}/src_events.csv")
-
-    # compute tgt latents using flow
-    tr = []
-    tr.append(LogTransform(clip=1e-3))
-    tr.append(NormalizeTensor(mean, var))
-    transform = transforms.Compose(tr)
-    tgt_events = []
-    for song in tgt_corpus_files:
-        event_sequence = np.load(song, allow_pickle=True)
-        for event in event_sequence:
-            # detect rest
-            if event['mel'].mean() != 0:
-                # pad each event with zeros or cut 
-                prep_event = np.zeros((num_MEL, melspec_size_flow))
-                prep_event[:event['mel'].shape[0], :event['mel'].shape[1]] = event['mel'][:num_MEL,:melspec_size_flow]
-                event['mel'] = transform(torch.from_numpy(prep_event).float()).to(DEVICE)
-                with torch.no_grad():
-                    _, z_tilde, _ = flow_model.ae_model(event['mel'].reshape(1, num_MEL, melspec_size_flow)) # latent vector
-                    # predicted_parameters = model.regression_model(z_tilde) # parameters
-                event_latents = z_tilde[0].detach().cpu().numpy().tolist() # seq2seq learns from this
-            else:
-                event_latents = np.zeros(N_latents_tgt).tolist()
-            event_latents.append(event['event_duration'])
-            event_latents.append(event['event_start'])
-            event_latents.append(song)
-            tgt_events.append(event_latents)
-    tgt_events = np.array(tgt_events)
-    print(tgt_events.shape)
-    columns = [f'latent-{j}' for j in range(tgt_events.shape[1]-3)]
-    columns.append('event_duration')
-    columns.append('event_start')
-    columns.append('filename')
-    df_tgt = pd.DataFrame(tgt_events, columns=columns)
-    print(df_tgt.head())
-    df_tgt.to_csv(f"{corpus_path}/tgt_events.csv")
-
-    # CHECK WHY SAME SIZE EVENT LISTS
-
-
-    # SAVE IN DFS
-
 
     # TRAIN SEQ2SEQ ON LATENTS
+    training_parameters = {}
+    training_parameters['sound_corpus_path'] = corpus_path
+    training_parameters['source_track_name'] = src_track_name
+    training_parameters['target_track_name'] = tgt_track_name
+    training_parameters['batch_size'] = 16
+    training_parameters['num_frequency'] = 12
+    training_parameters['dataset_training_percentage'] = 0.8
+    training_parameters['dataset_validation_percentage'] = 0.1
+    training_parameters['dim_model'] = 32
+    training_parameters['num_heads'] = 8
+    training_parameters['num_encoder_layers'] = 8
+    training_parameters['num_decoder_layers'] = 8
+    training_parameters['dim_feedforward'] = 512
+    training_parameters['dropout_p'] = 0.3
+    training_parameters['window_size_s'] = 8
+    training_parameters['pred_time_s'] = 0
+    training_parameters['pad_token'] = -1
+    training_parameters['loss_fn'] = 'MSE'
+    training_parameters['learning_rate'] = 0.001
+    training_parameters['epochs'] = 2000
+    training_parameters['seed'] = 666
+    model_load_path = None
+
+    features_source = [f'latent-{j}' for j in range(latent_dim)]
+    features_source.append('event_duration')
+    features_target = [f'latent-{j}' for j in range(N_latents_tgt)]
+    features_target.append('event_duration')
+    logdir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}'
+    os.makedirs(logdir, exist_ok=True)
+
+    # MAKE SAVE DIRECTORY
+    today = date.today()
+    model_name = f'{int(time.time())}-transformerDiscreteT2V'
+    os.makedirs(logdir, exist_ok=True)
+    with open(f'{logdir}/training_config.json', 'w', encoding='utf-8') as f:
+        json.dump(training_parameters, f, ensure_ascii=False, indent=4)
+
+	# LOAD CORPUS
+    source_corpus_df = pd.read_csv(f"{corpus_path}/src_events.csv", index_col=0)
+    target_corpus_df = pd.read_csv(f"{corpus_path}/tgt_events.csv", index_col=0)
+    src_signals_dfs = []
+    tgt_signals_dfs = []
+    unique_src_filenames = source_corpus_df['filename'].unique()
+    unique_tgt_filenames = target_corpus_df['filename'].unique()
+    unique_src_filenames = [name.split('/')[-3] for name in unique_src_filenames]
+    unique_tgt_filenames = [name.split('/')[-3] for name in unique_tgt_filenames]
+    common_filenames = list(set(unique_src_filenames) & set(unique_tgt_filenames))
+    # common_filenames = common_filenames[:4] # select a subset of data
+    for filename in common_filenames:
+        # assume that audio tracks are located one folder before datasets
+        partial_src_df = source_corpus_df[source_corpus_df['filename'] == f"{training_parameters['sound_corpus_path']}/{filename}/mel/{training_parameters['source_track_name']}.npy"]
+        partial_tgt_df = target_corpus_df[target_corpus_df['filename'] == f"{training_parameters['sound_corpus_path']}/{filename}/mel/{training_parameters['target_track_name']}.npy"]
+        # check that both are non-empty
+        if partial_src_df.shape[0] > 0 and partial_tgt_df.shape[0] > 0:
+            src_signals_dfs.append(partial_src_df)
+            tgt_signals_dfs.append(partial_tgt_df)
+
+    # print(source_corpus_df.head())
+
+    # normalize source features
+    src_features = source_corpus_df[features_source].values
+    src_scaler = StandardScaler()
+    src_scaler.fit(src_features)
+    src_normalized_sequences = []
+    for seq_df in src_signals_dfs:
+        sequence_df = pd.DataFrame(data=src_scaler.transform(seq_df[features_source].values), columns=features_source)
+        sequence_df['event_start'] = seq_df['event_start'].values
+        src_normalized_sequences.append(sequence_df)
+    joblib.dump(src_scaler, f'{logdir}/source_scaler.pkl')
+
+    print(src_normalized_sequences[0].shape)
+
+    # normalize target features
+    tgt_features = target_corpus_df[features_target].values
+    tgt_scaler = StandardScaler()
+    tgt_scaler.fit(tgt_features)
+    tgt_normalized_sequences = []
+    for seq_df in tgt_signals_dfs:
+        sequence_df = pd.DataFrame(data=tgt_scaler.transform(seq_df[features_target].values), columns=features_target)
+        sequence_df['event_start'] = seq_df['event_start'].values
+        tgt_normalized_sequences.append(sequence_df)
+    joblib.dump(tgt_scaler, f'{logdir}/target_scaler.pkl')
+
+    # make dataloader
+    window_size_s = training_parameters['window_size_s']
+    pred_time_s = training_parameters['pred_time_s']
+    WINDOW_N_SAMPLES = window_size_s * sr
+    PRED_TIME_SAMPLES = pred_time_s * sr
+    data = []
+    # max_seq_len = 0
+    seq_lens = []
+    all_src_times = []
+    all_tgt_times = []
+    for k in range(len(src_normalized_sequences)):
+        X_values = src_normalized_sequences[k][features_source].values
+        y_values = tgt_normalized_sequences[k][features_target].values
+        X_times = src_normalized_sequences[k]['event_start'].values
+        y_times = tgt_normalized_sequences[k]['event_start'].values
+        for j in range(y_times.shape[0]-1):
+            y_tgt = y_values[j+1,:]
+            # we subtract inference time 
+            # so that we can call inference some time before the end of an onset
+            window_start_idx = (y_times[j+1] - PRED_TIME_SAMPLES) - WINDOW_N_SAMPLES
+            indices = np.where((X_times >= window_start_idx) & (X_times < y_times[j+1]))
+            # add time difference index
+            x_src_window_times = (y_times[j+1] - PRED_TIME_SAMPLES) - X_times[indices]
+            x_src = np.concatenate((X_values[indices], x_src_window_times.reshape(-1,1)), axis=1)
+            all_src_times += x_src_window_times.tolist()
+            indices = np.where((y_times >= window_start_idx) & (y_times < y_times[j+1]))
+            # add time difference index
+            x_tgt_window_times = (y_times[j+1] - PRED_TIME_SAMPLES) - y_times[indices]
+            x_tgt = np.concatenate((y_values[indices], x_tgt_window_times.reshape(-1,1)), axis=1)
+            all_tgt_times += x_tgt_window_times.tolist()
+            data.append([x_src, x_tgt, y_tgt])
+            seq_lens.append(x_src.shape[0])
+            seq_lens.append(x_tgt.shape[0])
+
+    MAX_SEQ_LEN = int(np.array(seq_lens).mean() + np.array(seq_lens).std())
+    if model_load_path:
+        MAX_SEQ_LEN = training_parameters['max_sequence_length']
+    # remove rows where time is less than min or 
+    # normalize time feature
+    src_time_scaler = StandardScaler()
+    src_time_scaler.fit(np.array(all_src_times).reshape(-1,1))
+    tgt_time_scaler = StandardScaler()
+    tgt_time_scaler.fit(np.array(all_tgt_times).reshape(-1,1))
+    joblib.dump(src_time_scaler, f'{logdir}/source_time_scaler.pkl')
+    joblib.dump(tgt_time_scaler, f'{logdir}/target_time_scaler.pkl')
+    new_data = []
+    for datum in data:
+        if datum[0].shape[0] > 0 and datum[1].shape[0] > 0:
+            # print(datum[0].shape)
+            x_src = datum[0]
+            x_src[:,-1] = src_time_scaler.transform(x_src[:,-1].reshape(-1,1)).reshape(-1)
+            x_tgt = datum[1]
+            x_tgt[:,-1] = src_time_scaler.transform(x_tgt[:,-1].reshape(-1,1)).reshape(-1)
+            x_src = x_src[-MAX_SEQ_LEN:,:]
+            x_tgt = x_tgt[-MAX_SEQ_LEN:,:]
+            new_data.append([x_src, x_tgt, datum[2]])
+    data = new_data
+
+
+    # PAD SEQUENCES
+    PAD_TOKEN = training_parameters['pad_token']
+    new_data = []
+    for datum in data:
+        x_src = np.ones((MAX_SEQ_LEN, len(features_source)+1)) * PAD_TOKEN
+        x_tgt = np.ones((MAX_SEQ_LEN, len(features_target)+1)) * PAD_TOKEN
+        x_src[:datum[0].shape[0],:] = datum[0]
+        x_tgt[:datum[1].shape[0],:] = datum[1]
+        new_data.append([x_src, x_tgt, datum[2]])
+    data = new_data
+
+    with open(f'{logdir}/training_config.json', 'r') as f:
+        training_log = json.load(f)
+    training_log['max_sequence_length'] = MAX_SEQ_LEN
+    with open(f'{logdir}/training_config.json', 'w', encoding='utf-8') as f:
+        json.dump(training_log, f, ensure_ascii=False, indent=4)
+
+    # shuffle sequences
+    np.random.shuffle(data)
+
+    # train-validation split
+    train_perc = training_parameters['dataset_training_percentage']
+    val_perc = training_parameters['dataset_validation_percentage']
+    train_data = data[:int(len(data)*train_perc)]
+    test_data = data[int(len(data)*train_perc):]
+    val_data = train_data[int(len(train_data)*(1-val_perc)):]
+    train_data = train_data[:int(len(train_data)*(1-val_perc))]
+
+    # make training batches
+    batch_size = training_parameters['batch_size']
+    train_dataloader = batchify(train_data, batch_size)
+    val_dataloader = batchify(val_data, batch_size)
+    test_dataloader = batchify(test_data, batch_size)
+
+    # find device
+    device = torch.device("cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+
+    # create model
+    model = TransformerDiscreteT2V(
+            num_featuresin=len(features_source)+1,
+            num_featuresout=len(features_target)+1,
+            num_frequency=training_parameters['num_frequency'],
+            max_seq_len=MAX_SEQ_LEN,
+            dim_model=training_parameters['dim_model'], 
+            num_heads=training_parameters['num_heads'], 
+            num_encoder_layers=training_parameters['num_encoder_layers'], 
+            num_decoder_layers=training_parameters['num_decoder_layers'], 
+            dim_feedforward=training_parameters['dim_feedforward'], 
+            dropout_p=training_parameters['dropout_p']
+    ).to(device)
+    if model_load_path:
+        model.load_state_dict(torch.load(model_load_path, weights_only=True, map_location=device))
+    opt = torch.optim.SGD(model.parameters(), lr=training_parameters['learning_rate'])
+    # loss_fn = nn.CrossEntropyLoss()
+    if training_parameters['loss_fn'] == 'L1':
+        loss_fn = nn.L1Loss()
+    else:
+        loss_fn = nn.MSELoss()
+
+
+    # Used for plotting later on
+    train_loss_list, validation_loss_list = [], []
+
+    writer = SummaryWriter(logdir)
+    epochs = training_parameters['epochs']
+    best_loss = float('inf')
+    print("Training and validating model")
+    for epoch in range(epochs):
+        print("-"*25, f"Epoch {epoch + 1}","-"*25)
+
+        train_loss = trainLoop(model, train_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
+        train_loss_list += [train_loss]
+        writer.add_scalar("Loss/train", train_loss, epoch)
+
+        validation_loss = validationLoop(model, val_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
+        validation_loss_list += [validation_loss]
+        writer.add_scalar("Loss/validation", validation_loss, epoch)
+
+        print(f"Training loss: {train_loss:.4f}")
+        print(f"Validation loss: {validation_loss:.4f}")
+        print()
+
+        if validation_loss < best_loss:
+            best_loss = validation_loss
+            torch.save(model.state_dict(), f'{logdir}/best_model.pth')
+
+    writer.flush()
+    writer.close()
+
+
+    evaluation_metrics = {}
+
+    # load best model weights
+    model_load_path = f'{logdir}/best_model.pth'
+    model.load_state_dict(torch.load(model_load_path, weights_only=True))
+    train_loss = validationLoop(model, train_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
+    evaluation_metrics['training_MSE'] = train_loss
+    validation_loss = validationLoop(model, val_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
+    evaluation_metrics['validation_MSE'] = validation_loss
+    test_loss = validationLoop(model, test_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
+    evaluation_metrics['test_MSE'] = test_loss
+
+    with open(f'{logdir}/evaluation.json', 'w', encoding='utf-8') as f:
+        json.dump(evaluation_metrics, f, ensure_ascii=False, indent=4)
 
     # GENERATE OUTPUTS
 

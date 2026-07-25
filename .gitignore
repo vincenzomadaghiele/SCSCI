@@ -12,5 +12,8 @@
 **.model
 **.pdf
 **.json
-
+**.pkl
+**.csv
 **.DS_Store
+
+target/transformer/trained/**
