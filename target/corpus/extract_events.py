@@ -198,60 +198,147 @@ def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sampl
 	else:
 		plt.show()
 
+def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sample_duration_s=None):
+	plot_df_src = pd.DataFrame(columns=['mels','event_start','event_duration'])
+	for e in src_corpus_entry['events']:
+		new_row_data = {} 
+		new_row_data['mels'] = e['mel'].mean()
+		new_row_data['event_start'] = e['event_start']
+		new_row_data['event_duration'] = e['event_duration']
+		plot_df_src = pd.concat([plot_df_src, pd.DataFrame([new_row_data])], ignore_index=True)
+	signal_src, _ = librosa.load(src_corpus_entry['filename'], sr=sample_rate, mono=True)
+	sample_start = sample_start_s * sample_rate
+	if sample_duration_s:
+		sample_duration = sample_duration_s * sample_rate
+	plot_feature_src = 'mels'
+	plot_df_src[plot_feature_src] = 2*((plot_df_src[plot_feature_src] - plot_df_src[plot_feature_src].min())/(plot_df_src[plot_feature_src].max() - plot_df_src[plot_feature_src].min())) - 1
+	plot_df_src = plot_df_src[plot_df_src['event_start'] > sample_start]
+	if sample_duration_s and (sample_start+sample_duration) < signal_src.shape[0]:
+		plot_df_src = plot_df_src[plot_df_src['event_start'] < sample_start+sample_duration]
+	plot_df_src['event_start'] = plot_df_src['event_start'] - sample_start
+
+	plot_df_tgt = pd.DataFrame(columns=['mels','event_start','event_duration'])
+	for e in tgt_corpus_entry['events']:
+		new_row_data = {} 
+		new_row_data['mels'] = e['mel'].mean()
+		new_row_data['event_start'] = e['event_start']
+		new_row_data['event_duration'] = e['event_duration']
+		plot_df_tgt = pd.concat([plot_df_tgt, pd.DataFrame([new_row_data])], ignore_index=True)
+	signal_tgt, _ = librosa.load(tgt_corpus_entry['filename'], sr=sample_rate, mono=True)
+	sample_start = sample_start_s * sample_rate
+	if sample_duration_s:
+		sample_duration = sample_duration_s * sample_rate
+	plot_feature_tgt = 'mels'
+	plot_df_tgt[plot_feature_tgt] = 2*((plot_df_tgt[plot_feature_tgt] - plot_df_tgt[plot_feature_tgt].min())/(plot_df_tgt[plot_feature_tgt].max() - plot_df_tgt[plot_feature_tgt].min())) - 1
+	plot_df_tgt = plot_df_tgt[plot_df_tgt['event_start'] > sample_start]
+	if sample_duration_s and (sample_start+sample_duration) < signal_tgt.shape[0]:
+		plot_df_tgt = plot_df_tgt[plot_df_tgt['event_start'] < sample_start+sample_duration]
+	plot_df_tgt['event_start'] = plot_df_tgt['event_start'] - sample_start
+
+	fig, ax = plt.subplots(2, figsize=(20, 4))
+	if sample_duration_s and (sample_start+sample_duration) < signal_src.shape[0]:
+		librosa.display.waveshow(y=signal_src[sample_start:sample_start+sample_duration], sr=sample_rate, color="black", x_axis='time', ax=ax[0], alpha=0.2)
+	elif sample_start < signal_src.shape[0]:
+		librosa.display.waveshow(y=signal_src[sample_start:], sr=sample_rate, color="black", x_axis='time', ax=ax[0], alpha=0.2)
+
+	if sample_duration_s and (sample_start+sample_duration) < signal_tgt.shape[0]:
+		librosa.display.waveshow(y=signal_tgt[sample_start:sample_start+sample_duration], sr=sample_rate, color="black", x_axis='time', ax=ax[1], alpha=0.2)
+	elif sample_start < signal_tgt.shape[0]:
+		librosa.display.waveshow(y=signal_tgt[sample_start:], sr=sample_rate, color="black", x_axis='time', ax=ax[1], alpha=0.2)
+
+	ax[0].scatter(librosa.samples_to_time(plot_df_src['event_start'], sr=sample_rate), 
+				y=plot_df_src[plot_feature_src], label=plot_feature_src, edgecolors='r', facecolors='none')
+	ax[0].hlines(y=plot_df_src[plot_feature_src],
+			xmin=librosa.samples_to_time(plot_df_src['event_start'], sr=sample_rate), 
+			xmax=librosa.samples_to_time(plot_df_src['event_start']+plot_df_src['event_duration'], sr=sample_rate), 
+			linewidth=1, label='event duration', colors='r')
+	ax[0].vlines(librosa.samples_to_time(plot_df_src['event_start'], sr=sample_rate), 
+		-1, 1, color='r', alpha=0.1, linestyle='--', label='onsets', linewidth=0.5)
+
+	ax[1].scatter(librosa.samples_to_time(plot_df_tgt['event_start'], sr=sample_rate), 
+				y=plot_df_tgt[plot_feature_tgt], label=plot_feature_tgt, edgecolors='b', facecolors='none')
+	ax[1].hlines(y=plot_df_tgt[plot_feature_tgt],
+			xmin=librosa.samples_to_time(plot_df_tgt['event_start'], sr=sample_rate), 
+			xmax=librosa.samples_to_time(plot_df_tgt['event_start']+plot_df_tgt['event_duration'], sr=sample_rate), 
+			linewidth=1, label='event duration', colors='b')
+	ax[1].vlines(librosa.samples_to_time(plot_df_tgt['event_start'], sr=sample_rate), 
+		-1, 1, color='b', alpha=0.1, linestyle='--', label='onsets', linewidth=0.5)
+
+	ax[0].legend()
+	ax[0].set_ylabel(plot_feature_src)
+	ax[0].set_ylabel(plot_feature_tgt)
+	ax[1].set_xlabel('time [s]')
+	ax[0].set_title(src_corpus_entry['filename'].split('/')[-1].split('.')[0])
+	ax[1].set_title(tgt_corpus_entry['filename'].split('/')[-1].split('.')[0])
+	songname = src_corpus_entry['filename'].split('/')[-2]
+	if save_dir:
+		fig.savefig(f'{save_dir}/{songname}.png')
+	else:
+		plt.show()
+
+
 if __name__ == "__main__":
 
 	# extract 
 	corpus_name = 'guitar-duo'
-	track_name = 'guitar1'
+	src_track_name = 'guitar1'
+	tgt_track_name = 'guitar2'
 	corpus_path = f'corpus/{corpus_name}'
 	corpus_dirs = os.listdir(corpus_path)
-	corpus_dirs = [c for c in corpus_dirs if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store']]
-	corpus_files = [f'{corpus_path}/{song_name}/{track_name}.wav' for song_name in corpus_dirs]
-	for song_name in corpus_dirs:
-		# if song_name not in ['info','trained_VAE','.DS_Store']:
-		os.makedirs(f'{corpus_path}/{song_name}/mel', exist_ok=True)
-		os.makedirs(f'{corpus_path}/{song_name}/img', exist_ok=True)
+	src_tgt = []
+	for track_name in [src_track_name, tgt_track_name]:
+		corpus_events = []
+		corpus_dirs = [c for c in corpus_dirs if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full']]
+		corpus_files = [f'{corpus_path}/{song_name}/{track_name}.wav' for song_name in corpus_dirs]
+		for song_name in corpus_dirs:
+			# if song_name not in ['info','trained_VAE','.DS_Store']:
+			os.makedirs(f'{corpus_path}/{song_name}/mel', exist_ok=True)
+			os.makedirs(f'{corpus_path}/{song_name}/img', exist_ok=True)
 
+		# save processing parameters
+		processing_params = {}
+		processing_params['sample_rate'] = sr
+		processing_params['FFT_window_size'] = FFT_window
+		processing_params['hop_size'] = hop_size
+		processing_params['num_MFCC'] = num_MFCC
+		processing_params['num_MEL'] = num_MEL
+		processing_params['silence_threshold'] = silence_threshold
+		processing_params['max_event_duration_samples'] = max_event_duration_samples
+		processing_params['min_event_duration_samples'] = min_event_duration_samples
+		with open(f'{corpus_path}/featureExtraction_params.json', 'w', encoding='utf-8') as f:
+			json.dump(processing_params, f, ensure_ascii=False, indent=4)
 
-	# save processing parameters
-	processing_params = {}
-	processing_params['sample_rate'] = sr
-	processing_params['FFT_window_size'] = FFT_window
-	processing_params['hop_size'] = hop_size
-	processing_params['num_MFCC'] = num_MFCC
-	processing_params['num_MEL'] = num_MEL
-	processing_params['silence_threshold'] = silence_threshold
-	processing_params['max_event_duration_samples'] = max_event_duration_samples
-	processing_params['min_event_duration_samples'] = min_event_duration_samples
-	with open(f'{corpus_path}/featureExtraction_params.json', 'w', encoding='utf-8') as f:
-		json.dump(processing_params, f, ensure_ascii=False, indent=4)
+		for audiofile in corpus_files:
+			trackname = audiofile.split('/')[-1].split('.')[0]
+			song_name = audiofile.split('/')[-2]
+			signal, _ = librosa.load(audiofile, sr=sr, mono=True)
+			signal = adjustAmplitude(signal, FFT_window, hop_size)
+			print(f'Loading audiofile {audiofile} with length {signal.shape[0]} samples')
+			onsets = detectOnsets(signal, sr, 
+								min_event_duration_samples=min_event_duration_samples)
+			print(f'detected {len(onsets)} onsets...')
+			events = computeEventFeatures(signal, onsets, sr, FFT_window, 
+									hop_size, mfcc_N=num_MFCC, mels_N=num_MEL, compute_rests=True)
+			last_sample_n = signal.shape[0]-1
+			new_events = detectRests(events, num_MEL, 
+									min_event_duration_samples, 
+									max_event_duration_samples,
+									FFT_window,
+									hop_size,
+									last_sample_n )
+			this_file_event = {}
+			this_file_event['filename'] = audiofile
+			this_file_event['song_name'] = song_name
+			this_file_event['events'] = new_events
+			np.save(f'./{corpus_path}/{song_name}/mel/{trackname}.npy', np.array(new_events, dtype=object), allow_pickle=True)
+			corpus_events.append(this_file_event)
+		src_tgt.append(corpus_events)
+		for corpus_entry in corpus_events:
+			plotEvents(corpus_entry, sr, save_dir=f'./{corpus_path}/{corpus_entry["song_name"]}/img')
 
-	corpus_events = []
-	for audiofile in corpus_files:
-		trackname = audiofile.split('/')[-1].split('.')[0]
-		song_name = audiofile.split('/')[-2]
-		signal, _ = librosa.load(audiofile, sr=sr, mono=True)
-		signal = adjustAmplitude(signal, FFT_window, hop_size)
-		print(f'Loading audiofile {audiofile} with length {signal.shape[0]} samples')
-		onsets = detectOnsets(signal, sr, 
-							min_event_duration_samples=min_event_duration_samples)
-		print(f'detected {len(onsets)} onsets...')
-		events = computeEventFeatures(signal, onsets, sr, FFT_window, 
-								hop_size, mfcc_N=num_MFCC, mels_N=num_MEL, compute_rests=True)
-		last_sample_n = signal.shape[0]-1
-		new_events = detectRests(events, num_MEL, 
-								min_event_duration_samples, 
-								max_event_duration_samples,
-								FFT_window,
-								hop_size,
-								last_sample_n )
-		this_file_event = {}
-		this_file_event['filename'] = audiofile
-		this_file_event['song_name'] = song_name
-		this_file_event['events'] = new_events
-		np.save(f'./{corpus_path}/{song_name}/mel/{trackname}.npy', np.array(new_events, dtype=object), allow_pickle=True)
-		corpus_events.append(this_file_event)
-
-	for corpus_entry in corpus_events:
-		plotEvents(corpus_entry, sr, save_dir=f'./{corpus_path}/{corpus_entry["song_name"]}/img')
-
+	src_events, tgt_events = src_tgt[0], src_tgt[1]
+	for i in range(len(src_events)):
+		src_song = src_events[i]
+		tgt_song = tgt_events[i]
+		if src_song['song_name'] == tgt_song['song_name']:
+			plotPairedEvents(src_song, tgt_song, sr, save_dir=f'./{corpus_path}/{src_song["song_name"]}/img')

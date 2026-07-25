@@ -37,7 +37,7 @@ if __name__ == '__main__':
     # LOAD AUDIO TRACK
     corpus_name = 'guitar-duo'
     song_name = 'recording1'
-    src_track_name = 'guitar2'
+    src_track_name = 'guitar1'
     tgt_track_name = 'guitar2'
     filepath = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}.wav'
     signal, _ = librosa.load(filepath, sr=sr, mono=True)
@@ -119,5 +119,5 @@ if __name__ == '__main__':
     sf.write(f'{SAVE_FILEPATH}/{tgt_track_name}_resynthesized.wav', resynthesized_reconstruct, sr, subtype='PCM_24')
 
     # save pre-processed event duos (w. src-latents, tgt-latents + models used)
-    # better multi-voice synth with duration envelope
     
+    # better multi-voice synth with duration envelope
