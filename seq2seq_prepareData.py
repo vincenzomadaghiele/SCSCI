@@ -76,18 +76,19 @@ if __name__ == '__main__':
                     event_latents, _ = VAE_model.Encoder(prep_event)
                 event_latents = event_latents[0].detach().cpu().numpy().tolist()
             else:
-                # event_latents = np.zeros(latent_dim).tolist()
+                event_latents = np.zeros(latent_dim).tolist()
+                # event_latents = (np.zeros(latent_dim)+1000).tolist()
 
-                ## REMOVE IF DOESN'T WORK ##
-                prep_event = librosa.power_to_db(np.zeros((64,64)), ref=np.max)
-                prep_event = torch.clip(torch.from_numpy((prep_event+80) / 80), min=0, max=1)
-                prep_event = torch.unsqueeze(prep_event, 0).to(torch.float32)
-                prep_event = transform(prep_event)
-                prep_event = prep_event.reshape(prep_event.shape[0], image_size_flat).to(DEVICE)
-                with torch.no_grad():
-                    event_latents, _ = VAE_model.Encoder(prep_event)
-                event_latents = event_latents[0].detach().cpu().numpy().tolist()
-                ## REMOVE IF DOESN'T WORK ##
+                # ## REMOVE IF DOESN'T WORK ##
+                # prep_event = librosa.power_to_db(np.zeros((64,64)), ref=np.max)
+                # prep_event = torch.clip(torch.from_numpy((prep_event+80) / 80), min=0, max=1)
+                # prep_event = torch.unsqueeze(prep_event, 0).to(torch.float32)
+                # prep_event = transform(prep_event)
+                # prep_event = prep_event.reshape(prep_event.shape[0], image_size_flat).to(DEVICE)
+                # with torch.no_grad():
+                #     event_latents, _ = VAE_model.Encoder(prep_event)
+                # event_latents = event_latents[0].detach().cpu().numpy().tolist()
+                # ## REMOVE IF DOESN'T WORK ##
 
             event_latents.append(event['event_duration'])
             event_latents.append(event['event_start'])
@@ -123,16 +124,17 @@ if __name__ == '__main__':
                     # predicted_parameters = model.regression_model(z_tilde) # parameters
                 event_latents = z_tilde[0].detach().cpu().numpy().tolist() # seq2seq learns from this
             else:
-                # event_latents = np.zeros(N_latents_tgt).tolist()
+                event_latents = np.zeros(N_latents_tgt).tolist()
+                # event_latents = (np.zeros(N_latents_tgt)+1000).tolist()
 
-                ## REMOVE IF DOESN'T WORK ##
-                prep_event = np.zeros((num_MEL, melspec_size_flow))
-                event['mel'] = transform(torch.from_numpy(prep_event).float()).to(DEVICE)
-                with torch.no_grad():
-                    _, z_tilde, _ = flow_model.ae_model(event['mel'].reshape(1, num_MEL, melspec_size_flow)) # latent vector
-                    # predicted_parameters = model.regression_model(z_tilde) # parameters
-                event_latents = z_tilde[0].detach().cpu().numpy().tolist() # seq2seq learns from this
-                ## REMOVE IF DOESN'T WORK ##
+                # ## REMOVE IF DOESN'T WORK ##
+                # prep_event = np.zeros((num_MEL, melspec_size_flow))
+                # event['mel'] = transform(torch.from_numpy(prep_event).float()).to(DEVICE)
+                # with torch.no_grad():
+                #     _, z_tilde, _ = flow_model.ae_model(event['mel'].reshape(1, num_MEL, melspec_size_flow)) # latent vector
+                #     # predicted_parameters = model.regression_model(z_tilde) # parameters
+                # event_latents = z_tilde[0].detach().cpu().numpy().tolist() # seq2seq learns from this
+                # ## REMOVE IF DOESN'T WORK ##
 
             event_latents.append(event['event_duration'])
             event_latents.append(event['event_start'])

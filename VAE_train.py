@@ -234,7 +234,7 @@ if __name__ == "__main__":
     plt.xlabel('PCA 1')
     plt.ylabel('PCA 2')
     plt.title('Latent space encodings')
-    fig.savefig(f'{save_dir}/images/scatter.png')
+    fig.savefig(f'{save_dir}/scatter.png')
 
     with torch.no_grad():
         noise = torch.randn(batch_size, latent_dim).to(DEVICE)
@@ -247,4 +247,6 @@ if __name__ == "__main__":
         ax[0,i].axis('off')
         ax[1,i].imshow(generated_images[i+8].cpu().numpy())
         ax[1,i].axis('off')
-    fig.savefig(f'{save_dir}/images/{model_name}_latent_gen.png')
+    fig.savefig(f'{save_dir}/{model_name}_latent_gen.png')
+
+    np.save(f'{save_dir}/latents.npy', full_latents)

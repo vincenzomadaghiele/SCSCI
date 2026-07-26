@@ -111,7 +111,7 @@ if __name__ == '__main__':
     training_parameters['pad_token'] = -1
     training_parameters['loss_fn'] = 'MSE'
     training_parameters['learning_rate'] = 0.001
-    training_parameters['epochs'] = 2000
+    training_parameters['epochs'] = 100
     training_parameters['seed'] = 666
     model_load_path = None
 
