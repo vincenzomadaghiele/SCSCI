@@ -76,8 +76,8 @@ if __name__ == '__main__':
                     event_latents, _ = VAE_model.Encoder(prep_event)
                 event_latents = event_latents[0].detach().cpu().numpy().tolist()
             else:
-                event_latents = np.zeros(latent_dim).tolist()
-                # event_latents = (np.zeros(latent_dim)+1000).tolist()
+                # event_latents = np.zeros(latent_dim).tolist()
+                event_latents = (np.zeros(latent_dim)-6).tolist()
 
                 # ## REMOVE IF DOESN'T WORK ##
                 # prep_event = librosa.power_to_db(np.zeros((64,64)), ref=np.max)
@@ -124,8 +124,8 @@ if __name__ == '__main__':
                     # predicted_parameters = model.regression_model(z_tilde) # parameters
                 event_latents = z_tilde[0].detach().cpu().numpy().tolist() # seq2seq learns from this
             else:
-                event_latents = np.zeros(N_latents_tgt).tolist()
-                # event_latents = (np.zeros(N_latents_tgt)+1000).tolist()
+                # event_latents = np.zeros(N_latents_tgt).tolist()
+                event_latents = (np.zeros(N_latents_tgt)-6).tolist()
 
                 # ## REMOVE IF DOESN'T WORK ##
                 # prep_event = np.zeros((num_MEL, melspec_size_flow))

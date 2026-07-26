@@ -108,10 +108,10 @@ if __name__ == '__main__':
     training_parameters['dropout_p'] = 0.3
     training_parameters['window_size_s'] = 8
     training_parameters['pred_time_s'] = 0
-    training_parameters['pad_token'] = -1
+    training_parameters['pad_token'] = -1000
     training_parameters['loss_fn'] = 'MSE'
     training_parameters['learning_rate'] = 0.001
-    training_parameters['epochs'] = 100
+    training_parameters['epochs'] = 1000
     training_parameters['seed'] = 666
     model_load_path = None
 
