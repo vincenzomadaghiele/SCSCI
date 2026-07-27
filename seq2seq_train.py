@@ -83,10 +83,10 @@ if __name__ == '__main__':
     elif torch.backends.mps.is_available():
         DEVICE = torch.device("mps")
 
-    corpus_name = 'guitar-duo'
+    corpus_name = 'moisesdb-BassDrums'
     corpus_path = f'corpus/{corpus_name}'
-    src_track_name = 'guitar1'
-    tgt_track_name = 'guitar2'
+    src_track_name = 'bass'
+    tgt_track_name = 'drums'
     latent_dim = 8
     N_latents_tgt = 5
     SYNTH_NAME = 'Theremin'

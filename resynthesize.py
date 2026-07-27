@@ -32,6 +32,8 @@ def makeCrownWindow(size):
     return crown_window
 
 def melToVAElatents(mels, VAE_model, image_size=64):
+    device = torch.device("cpu")
+    VAE_model.to(device)
     VAE_transform = transforms.Compose([transforms.Resize(image_size), transforms.CenterCrop(image_size)])
     prep_event = librosa.power_to_db(mels, ref=np.max)
     prep_event = torch.clip(torch.from_numpy((prep_event+80) / 80), min=0, max=1)
@@ -47,6 +49,8 @@ def melToFlowLatents(mels, flow_model, mean, var, num_MELS=64, melspec_size=80):
     tr.append(LogTransform(clip=1e-3))
     tr.append(NormalizeTensor(mean, var))
     flow_transform = transforms.Compose(tr)
+    device = torch.device("cpu")
+    flow_model.to(device)
     prep_event = np.zeros((num_MELS, melspec_size)) # pad each event with zeros or cut 
     prep_event[:mels.shape[0], :mels.shape[1]] = mels[:num_MELS,:melspec_size]
     mels = flow_transform(torch.from_numpy(prep_event).float()).to(device)
@@ -69,10 +73,10 @@ if __name__ == '__main__':
     model.eval()
 
     # LOAD AUDIO TRACK
-    corpus_name = 'guitar-duo'
-    song_name = 'recording1'
-    src_track_name = 'guitar1'
-    tgt_track_name = 'guitar2'
+    corpus_name = 'moisesdb-BassDrums'
+    song_name = '2e5d996d-43f3-4359-b7c5-afebe9997556'
+    src_track_name = 'bass'
+    tgt_track_name = 'drums'
     filepath = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}.wav'
     signal, _ = librosa.load(filepath, sr=sr, mono=True)
     events = extractEvents(signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)

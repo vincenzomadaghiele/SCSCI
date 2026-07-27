@@ -31,9 +31,9 @@ if __name__ == '__main__':
     # device 
     DEVICE = torch.device("cpu")
 
-    corpus_name = 'guitar-duo'
+    corpus_name = 'moisesdb-BassDrums'
     SYNTH_NAME = 'Theremin'
-    model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/1785090594-transformerDiscreteT2V'
+    model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/1785140002-transformerDiscreteT2V'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
     model_load_path = f'{model_dir}/best_model.pth'
@@ -67,9 +67,9 @@ if __name__ == '__main__':
     tgt_time_scaler = joblib.load(f'{model_dir}/target_time_scaler.pkl')
 
     # LOAD AUDIO FILE
-    song_name = 'recording2'
-    src_track_name = 'guitar1'
-    src_audio_filepath = f'corpus/guitar-duo/{song_name}/{src_track_name}.wav'
+    song_name = '07fb2df2-91d6-458d-9230-9638b4edac08'
+    src_track_name = 'bass'
+    src_audio_filepath = f'corpus/{corpus_name}/{song_name}/{src_track_name}.wav'
     src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
     pred_signal = np.zeros(src_signal.shape[0])
 
@@ -207,7 +207,7 @@ if __name__ == '__main__':
         pred_duration = int(y_pred[-1])
         # print(y_pred[:-1])
         # detect rest
-        if all(y_pred[:-1].tolist()) < -5:
+        if all(y_pred[:-1].tolist()) < -4:
             sound_segment = np.zeros(pred_duration)
         else:
             next_latents = torch.tensor(y_pred[:-1]).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
