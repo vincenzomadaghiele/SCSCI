@@ -4,10 +4,10 @@ from signalflow import *
 import numpy as np
 import soundfile as sf
 import matplotlib.pyplot as plt
-from patches.benjolin import Benjolin
-from patches.granular import Granular
-from patches.snare import Snare
-from patches.theremin import ADSRTheremin
+from synth.patches.benjolin import Benjolin
+from synth.patches.granular import Granular
+from synth.patches.snare import Snare
+from synth.patches.theremin import ADSRTheremin
 
 class Synth:
     def __init__(self, 

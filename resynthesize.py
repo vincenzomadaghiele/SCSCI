@@ -63,12 +63,13 @@ def melToFlowLatents(mels, flow_model, mean, var, num_MELS=64, melspec_size=80):
 if __name__ == '__main__': 
 
     # save models by synth
-    SYNTH_NAME = 'Theremin'
+    SYNTH_NAME = 'Snare'
 
     # LOAD FLOW MODEL
     device = torch.device('cpu')
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
-    model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
+    # model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
+    model_name = 'vae_flow_mel_mse_0_gated_cnn_maf_flow_post_maf_3'
     model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=device).to(device)
     model.eval()
 

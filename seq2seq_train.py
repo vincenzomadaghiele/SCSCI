@@ -88,8 +88,8 @@ if __name__ == '__main__':
     src_track_name = 'bass'
     tgt_track_name = 'drums'
     latent_dim = 8
-    N_latents_tgt = 5
-    SYNTH_NAME = 'Theremin'
+    N_latents_tgt = 7
+    SYNTH_NAME = 'Snare'
 
     # TRAIN SEQ2SEQ ON LATENTS
     training_parameters = {}

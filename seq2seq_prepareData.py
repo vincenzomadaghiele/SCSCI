@@ -43,9 +43,10 @@ if __name__ == '__main__':
 
 
     # LOAD FLOW MODEL
-    SYNTH_NAME = 'Theremin'
+    SYNTH_NAME = 'Snare'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
-    model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
+    # model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
+    model_name = 'vae_flow_mel_mse_0_gated_cnn_maf_flow_post_maf_3'
     flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
     flow_model.eval()
     # LOAD DATASET STATS FOR NORMALIZATION
@@ -56,7 +57,7 @@ if __name__ == '__main__':
     with open(f'./synth/datasets/{SYNTH_NAME}/vars.json') as f:
         d = json.load(f)
         var = d['mel']
-    N_latents_tgt = 5 # retreive this from flow train JSON
+    N_latents_tgt = 7 # retreive this from flow train JSON
 
 
     # COMPUTE LATENTS

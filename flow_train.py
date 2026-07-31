@@ -353,10 +353,10 @@ for i in range(args.epochs):
 Evaluation section
 ###################
 """
-from evaluate import evaluate_params, evaluate_synthesis, evaluate_projection
-from evaluate import evaluate_reconstruction, evaluate_latent_space
-from evaluate import evaluate_meta_parameters, evaluate_semantic_parameters
-from evaluate import evaluate_latent_neighborhood
+from flow_evaluate import evaluate_params, evaluate_synthesis, evaluate_projection
+from flow_evaluate import evaluate_reconstruction, evaluate_latent_space
+from flow_evaluate import evaluate_meta_parameters, evaluate_semantic_parameters
+from flow_evaluate import evaluate_latent_neighborhood
 args.plot = 'final'
 args.model_name, args.base_img, args.base_audio = model_name, base_img, base_audio
 args.base_model = args.output + '/models/' + model_name
