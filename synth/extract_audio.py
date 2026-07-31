@@ -12,16 +12,16 @@ def task(args):
 if __name__ == '__main__': 
 
     # CONFIG
-    SAVE_FILEPATH = './synths/datasets'
+    SAVE_FILEPATH = './datasets'
     RECORDING_TIME = 10
     sr = 44100
     hop_size = 256
-    SYNTH_NAME = 'Theremin'
+    SYNTH_NAME = 'Snare'
     SAVE_FILEPATH = f'{SAVE_FILEPATH}/{SYNTH_NAME}'
     os.makedirs(SAVE_FILEPATH, exist_ok=True)
 
     RANDOM_PERMUTATIONS = True
-    N_synth_parameters = 12
+    N_synth_parameters = 8
     if RANDOM_PERMUTATIONS:
         NUM_SAMPLES = 10000
         permutations = []
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     # COMPUTE COMMANDS TO EXTRACT SOUND
     commands = []
     for params in permutations:
-        command = f'python3 synths/synths.py --SYNTH_NAME {SYNTH_NAME} --SAVE_FILEPATH {SAVE_FILEPATH} --SYNTH_PARAMETERS {params} --RECORDING_TIME {RECORDING_TIME} --SAMPLE_RATE {sr} --HOP_SIZE {hop_size}'
+        command = f'python3 synths.py --SYNTH_NAME {SYNTH_NAME} --SAVE_FILEPATH {SAVE_FILEPATH} --SYNTH_PARAMETERS {params} --RECORDING_TIME {RECORDING_TIME} --SAMPLE_RATE {sr} --HOP_SIZE {hop_size}'
         commands.append(command)
 
     # EXECUTE WITH MULTI-THREADING

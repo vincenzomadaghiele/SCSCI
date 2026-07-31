@@ -12,20 +12,6 @@ from utils.transforms import LogTransform, NormalizeTensor, NoiseGaussian
 from utils.plot import plot_batch, plot_batch_detailed
 import librosa
 
-meta_pairs = [["Bright_Dark", "Clean_Dirty", "Modern_Vintage", "Phat_Thin", 
-               "Soft_Aggressive", "Constant_Moving", "Natural_Synthetic", 
-               "Wide_Narrow", "Harmonic_Inharmonic", "Dynamic_Static"],
-         ["Bright", "Dark", ""], 
-         ["Clean", "Dirty", ""], 
-         ["Modern", "Vintage", ""],
-         ["Phat", "Thin", ""], 
-         ["Soft", "Aggressive", ""], 
-         ["Constant", "Moving", ""],
-         ["Natural", "Synthetic", ""], 
-         ["Wide", "Narrow", ""],
-         ["Harmonic", "Inharmonic", ""], 
-         ["Dynamic", "Static", ""]]
-
 """
 ###################
 

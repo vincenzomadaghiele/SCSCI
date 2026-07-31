@@ -4,10 +4,10 @@ from signalflow import *
 import numpy as np
 import soundfile as sf
 import matplotlib.pyplot as plt
-from synth.patches.benjolin import Benjolin
-from synth.patches.granular import Granular
-from synth.patches.snare import Snare
-from synth.patches.theremin import ADSRTheremin
+from patches.benjolin import Benjolin
+from patches.granular import Granular
+from patches.snare import Snare
+from patches.theremin import ADSRTheremin
 
 class Synth:
     def __init__(self, 
@@ -89,8 +89,10 @@ if __name__ == "__main__":
 
     param_names = synth.getInputs()
     print(param_names)
-    # param_names.remove("gate")
+    param_names.remove("gain")
     N_params = len(param_names)
     synth.setParameters(param_names, synth_parameters)
+    synth.setParameters(["gain"], [0.8])
+    SYNTH_PARAMETERS = '-'.join([str(sy) for sy in synth_parameters])
     sf.write(f'{SAVE_FILEPATH}/{SYNTH_PARAMETERS}.wav', synth.forward(), sr, subtype='PCM_24')
     synth.close()
