@@ -258,7 +258,7 @@ class SpecData(Dataset):
             if set_type == "train": # apply noise to train sets
                 tr.append(transforms.RandomApply([NoiseGaussian(factor=1e-2)], p=0.333))
             #tr.append(transforms.RandomApply([OutliersZeroRandom(factor=.1)], p=0.333))
-            self.transform = transforms.Compose(tr)      
+            self.transform = transforms.Compose(tr)
 
     def compute_normalization(self):
         self.mean = 0

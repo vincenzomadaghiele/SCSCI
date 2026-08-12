@@ -4,10 +4,11 @@ from signalflow import *
 import numpy as np
 import soundfile as sf
 import matplotlib.pyplot as plt
-from synth.patches.benjolin import Benjolin
-from synth.patches.granular import Granular
-from synth.patches.snare import Snare
-from synth.patches.theremin import ADSRTheremin
+from patches.benjolin import Benjolin
+from patches.granular import Granular
+from patches.snare import Snare
+from patches.theremin import ADSRTheremin
+from patches.timbreTheremin import TimbreTheremin
 
 class Synth:
     def __init__(self, 
@@ -34,6 +35,8 @@ class Synth:
             self.synth = Granular() 
         elif self.synth_name == 'Snare':
             self.synth = Snare() 
+        elif self.synth_name == 'TimbreTheremin':
+            self.synth = TimbreTheremin() 
         else:
             self.synth = ADSRTheremin() 
         self.synth.play()
@@ -88,7 +91,6 @@ if __name__ == "__main__":
     synth_parameters = [float(sy) for sy in synth_parameters]
 
     param_names = synth.getInputs()
-    print(param_names)
     param_names.remove("gain")
     N_params = len(param_names)
     synth.setParameters(param_names, synth_parameters)

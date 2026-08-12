@@ -63,13 +63,13 @@ def melToFlowLatents(mels, flow_model, mean, var, num_MELS=64, melspec_size=80):
 if __name__ == '__main__': 
 
     # save models by synth
-    SYNTH_NAME = 'Snare'
+    SYNTH_NAME = 'Theremin'
 
     # LOAD FLOW MODEL
     device = torch.device('cpu')
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
-    # model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
-    model_name = 'vae_flow_mel_mse_0_gated_cnn_maf_flow_post_maf_3'
+    model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
+    # model_name = 'vae_flow_mel_mse_0_gated_cnn_maf_flow_post_maf_3'
     model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=device).to(device)
     model.eval()
 
@@ -119,8 +119,10 @@ if __name__ == '__main__':
     for event in events:
         event_durations.append(event['event_duration'])
         event_starts.append(event['event_start'])
-        if event['mel'].mean() != 0 and event['mel'].shape[1] > 0:
+        if event['rms'] != 0:
             mels = event['mel']
+            rms = event['rms']
+            pitch = event['pitch']
             # COMPUTE VAE LATENTS
             event_latents = melToVAElatents(mels, VAE_model)
             VAE_latents.append(event_latents)
@@ -128,7 +130,10 @@ if __name__ == '__main__':
             z_tilde, predicted_parameters = melToFlowLatents(mels, model, mean, var)
             flow_latents.append(z_tilde)
             # RE-SYNTHESIZE SOUND EVENT
-            synth.setParameters(param_names, predicted_parameters.tolist())
+            predicted_parameters = predicted_parameters.tolist()
+            predicted_parameters[0] = float(np.clip(pitch / 11050, 220, 660)) # freq
+            predicted_parameters[1] = float(np.clip(rms*50, 0, 1)) # gain
+            synth.setParameters(param_names, predicted_parameters)
             synthesized_event = synth.forward() # add possibility of 'note off' to handle different durations
             if synthesized_event.shape[0] > event['event_duration']:
                 event['resynthesized'] = synthesized_event[:event['event_duration']]

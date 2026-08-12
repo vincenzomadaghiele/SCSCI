@@ -10,16 +10,21 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+from utils.transforms import NormalizeTensor
 
 
 class MelSpectrogramDataset(Dataset):
     def __init__(self, img_dir, transform=None):
         self.img_dir = img_dir
         self.transform = transform
+        self.normTransform = None
+        self.mean = None
+        self.std = None
         self.corpus_paths = []
         for file in os.listdir(self.img_dir):
             if file.endswith(".npy"):
                 self.corpus_paths.append(os.path.join(self.img_dir, file))
+        # self._computeStats()
     def __len__(self):
         return len(self.corpus_paths)
     def __getitem__(self, idx):
@@ -27,7 +32,16 @@ class MelSpectrogramDataset(Dataset):
         image = torch.unsqueeze(image, 0).to(torch.float32)
         if self.transform:
             image = self.transform(image)
+        if self.mean and self.std and self.normTransform:
+            image = self.normTransform(image)
         return image
+    def _computeStats(self):
+        images = []
+        for i in range(len(self.corpus_paths)):
+            images.append(self.__getitem__(i))
+        self.mean = float(np.array(images).mean())
+        self.std = float(np.array(images).std())
+        self.normTransform = transforms.Compose([NormalizeTensor(self.mean, self.std)])
 
 class Encoder(nn.Module):
     def __init__(self, input_dim, hidden_dim, latent_dim):
@@ -100,6 +114,7 @@ if __name__ == "__main__":
         for event in corpus_file:
             if event['mel'].mean() != 0 and event['mel'].shape[1] > 0:
             # if event['mel'].shape[1] > 0:
+                # mel = event['mel']
                 mel = librosa.power_to_db(event['mel'], ref=np.max)
                 mels.append(mel)
                 np.save(f'./{save_full_mels_path}/event-{i}.npy', np.array(mel))
@@ -110,12 +125,13 @@ if __name__ == "__main__":
     image_size = 64
     print("-Target Image Size: %d" % image_size)
     transform = transforms.Compose([transforms.Resize(image_size), transforms.CenterCrop(image_size)])
+    # transform = transforms.Compose([LogTransform(clip=1e-3), transforms.Resize(image_size), transforms.CenterCrop(image_size)])
+
     data_set = MelSpectrogramDataset(save_full_mels_path, transform=transform)
     test_split = 0.9
     n_train_examples = int(len(data_set) * test_split)
     n_test_examples = len(data_set) - n_train_examples
-    train_set, test_set = torch.utils.data.random_split(data_set, [n_train_examples, n_test_examples], 
-                                                        generator=torch.Generator().manual_seed(42))
+    train_set, test_set = torch.utils.data.random_split(data_set, [n_train_examples, n_test_examples], generator=torch.Generator().manual_seed(42))
     batch_size = 16
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False)
@@ -197,6 +213,7 @@ if __name__ == "__main__":
             ax[0, 0].set_title('Original')
             ax[1, 0].set_title('Reconstructed')
             fig.savefig(f'{save_dir}/images/{model_name}_recon-{epoch+1}.png')
+            plt.close(fig)
 
     fig, ax = plt.subplots()
     plt.plot(train_losses, label='train loss')
@@ -206,6 +223,7 @@ if __name__ == "__main__":
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     fig.savefig(f'{save_dir}/convergence.png')
+    plt.close(fig)
 
     model.load_state_dict(torch.load(f'{save_dir}/{model_name}.pth', weights_only=True))
     model.eval()
@@ -235,6 +253,7 @@ if __name__ == "__main__":
     plt.ylabel('PCA 2')
     plt.title('Latent space encodings')
     fig.savefig(f'{save_dir}/scatter.png')
+    plt.close(fig)
 
     with torch.no_grad():
         noise = torch.randn(batch_size, latent_dim).to(DEVICE)
@@ -248,5 +267,6 @@ if __name__ == "__main__":
         ax[1,i].imshow(generated_images[i+8].cpu().numpy())
         ax[1,i].axis('off')
     fig.savefig(f'{save_dir}/{model_name}_latent_gen.png')
+    plt.close(fig)
 
     np.save(f'{save_dir}/latents.npy', full_latents)

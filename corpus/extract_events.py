@@ -14,6 +14,7 @@ def computeFeatures(signal, sample_rate, FFT_window_size, hop_size,
 					mfcc_N=16, mels_N=64, compute_rests=False, 
 					silence_threshold=0.0005, max_frames=80):
 	rms = librosa.feature.rms(y=signal, frame_length=FFT_window_size, hop_length=hop_size)
+	pitch = librosa.yin(signal, fmin=200, fmax=sample_rate/2, sr=sample_rate, frame_length=FFT_window_size, hop_length=hop_size)
 	if compute_rests:
 		event_duration = [1 if rms_value > silence_threshold else 0 for rms_value in rms[0].tolist()]
 		event_duration = (np.array(event_duration) == 1).sum()
@@ -27,7 +28,7 @@ def computeFeatures(signal, sample_rate, FFT_window_size, hop_size,
 	# mfcc = mfcc[:mfcc_N, :int(mel.shape[1]*mels_N/mfcc_N)]
 	# mfcc = mfcc.reshape(mels_N, -1)
 
-	return rms, mel, event_duration
+	return rms, pitch, mel, event_duration
 	# return rms, mfcc, mel, event_duration
 
 def adjustAmplitude(signal, FFT_window_size, hop_size):
@@ -47,24 +48,35 @@ def detectOnsets(signal, sample_rate, min_event_duration_samples=441):
 			latest_onset = onsets[i]
 	return newonsets
 
-def computeEventFeatures(signal, onsets, sample_rate, FFT_window_size, hop_size, mfcc_N=16, mels_N=64, compute_rests=True, silence_threshold=0.0005, max_frames=80):
+def computeEventFeatures(signal, onsets, sample_rate, FFT_window_size, hop_size, 
+						 mfcc_N=16, mels_N=64, compute_rests=True, silence_threshold=0.0005, max_frames=80, timbre_pitch=True):
 	events = []
 	for i in range(len(onsets)-1):
 		event_info = {}
 		# slice soundfile
 		this_onset_signal = signal[onsets[i]:onsets[i+1]]
-
 		# extract features
 		rms = librosa.feature.rms(y=this_onset_signal, frame_length=FFT_window_size, hop_length=hop_size)
 		if compute_rests:
 			event_duration = [1 if rms_value > silence_threshold else 0 for rms_value in rms[0].tolist()]
 			event_duration = (np.array(event_duration) == 1).sum()
 			duration = librosa.frames_to_samples(event_duration, hop_length=hop_size, n_fft=FFT_window_size)
-		mel = librosa.feature.melspectrogram(y=this_onset_signal, sr=sample_rate, n_fft=FFT_window_size, 
-											n_mels=mels_N, hop_length=hop_size, fmin=30, fmax=11000)
+			rms = rms[:duration]
+			pitch = rms[:duration]
+			this_onset_signal[:duration]
+		else: 
+			duration = this_onset_signal.shape[0]
+		pitch = librosa.yin(this_onset_signal, fmin=200, fmax=sample_rate/2, sr=sample_rate, frame_length=FFT_window_size, hop_length=hop_size)
+		if timbre_pitch:
+			BASE_FREQ = 220
+			base_pitch = librosa.hz_to_midi(BASE_FREQ)
+			this_pitch = librosa.hz_to_midi(pitch.mean())
+			this_onset_signal = librosa.effects.pitch_shift(this_onset_signal, sr=sr, n_steps=this_pitch-base_pitch)
+		mel = librosa.feature.melspectrogram(y=this_onset_signal, sr=sample_rate, n_fft=FFT_window_size, n_mels=mels_N, hop_length=hop_size, fmin=30, fmax=11000)
 		mel = mel[:mels_N, :max_frames]
-
 		# save
+		event_info['rms'] = rms.mean()
+		event_info['pitch'] = pitch.mean()
 		event_info['mel'] = mel
 		event_info['event_duration'] = duration
 		event_info['event_start'] = onsets[i]
@@ -85,6 +97,8 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 					new_row_data['event_start'] = start_counter 
 					new_row_data['event_duration'] = max_length_samples
 					new_row_data['mel'] = np.zeros((num_MEL, librosa.samples_to_frames(new_row_data['event_duration'], hop_length=hop_size, n_fft=FFT_window_size)))
+					new_row_data['rms'] = 0
+					new_row_data['pitch'] = 0
 					new_events.append(new_row_data)
 					start_counter += max_length_samples
 					dur_counter -= max_length_samples
@@ -94,6 +108,8 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 						new_row_data['event_start'] = start_counter 
 						new_row_data['event_duration'] = dur_counter
 						new_row_data['mel'] = np.zeros((num_MEL, librosa.samples_to_frames(new_row_data['event_duration'], hop_length=hop_size, n_fft=FFT_window_size)))
+						new_row_data['rms'] = 0
+						new_row_data['pitch'] = 0
 						new_events.append(new_row_data)
 					start_counter += max_length_samples
 					dur_counter -= max_length_samples
@@ -113,6 +129,8 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 						new_row_data['event_start'] = start_counter 
 						new_row_data['event_duration'] = max_length_samples
 						new_row_data['mel'] = np.zeros((num_MEL, librosa.samples_to_frames(new_row_data['event_duration'], hop_length=hop_size, n_fft=FFT_window_size)))
+						new_row_data['rms'] = 0
+						new_row_data['pitch'] = 0
 						new_events.append(new_row_data)
 						start_counter += max_length_samples
 						total_rest_duration -= max_length_samples
@@ -122,6 +140,8 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 							new_row_data['event_start'] = start_counter 
 							new_row_data['event_duration'] = total_rest_duration
 							new_row_data['mel'] = np.zeros((num_MEL, np.clip(librosa.samples_to_frames(new_row_data['event_duration'], hop_length=hop_size, n_fft=FFT_window_size), a_min=0, a_max=None)))
+							new_row_data['rms'] = 0
+							new_row_data['pitch'] = 0
 							new_events.append(new_row_data)
 						start_counter += max_length_samples
 						total_rest_duration -= max_length_samples
@@ -137,6 +157,8 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 					new_row_data['event_start'] = start_counter 
 					new_row_data['event_duration'] = max_length_samples
 					new_row_data['mel'] = np.zeros((num_MEL, librosa.samples_to_frames(new_row_data['event_duration'], hop_length=hop_size, n_fft=FFT_window_size)))
+					new_row_data['rms'] = 0
+					new_row_data['pitch'] = 0
 					new_events.append(new_row_data)
 					start_counter += max_length_samples
 					total_rest_duration -= max_length_samples
@@ -146,6 +168,8 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 						new_row_data['event_start'] = start_counter 
 						new_row_data['event_duration'] = total_rest_duration
 						new_row_data['mel'] = np.zeros((num_MEL, librosa.samples_to_frames(new_row_data['event_duration'], hop_length=hop_size, n_fft=FFT_window_size)))
+						new_row_data['rms'] = 0
+						new_row_data['pitch'] = 0
 						new_events.append(new_row_data)
 					start_counter += max_length_samples
 					total_rest_duration -= max_length_samples
@@ -154,10 +178,12 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 	return new_events
 
 def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sample_duration_s=None):
-	plot_df_src = pd.DataFrame(columns=['mels','event_start','event_duration'])
+	plot_df_src = pd.DataFrame(columns=['rms','pitch','mels','event_start','event_duration'])
 	for e in corpus_entry['events']:
 		if e['mel'].shape[0] > 0:
 			new_row_data = {} 
+			new_row_data['rms'] = e['rms']
+			new_row_data['pitch'] = e['pitch']
 			new_row_data['mels'] = e['mel'].mean()
 			new_row_data['event_start'] = e['event_start']
 			new_row_data['event_duration'] = e['event_duration']
@@ -169,7 +195,7 @@ def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sampl
 	if sample_duration_s:
 		sample_duration = sample_duration_s * sample_rate
 
-	plot_feature_src = 'mels'
+	plot_feature_src = 'pitch'
 	plot_df_src[plot_feature_src] = 2*((plot_df_src[plot_feature_src] - plot_df_src[plot_feature_src].min())/(plot_df_src[plot_feature_src].max() - plot_df_src[plot_feature_src].min())) - 1
 	plot_df_src = plot_df_src[plot_df_src['event_start'] > sample_start]
 	if sample_duration_s and (sample_start+sample_duration) < signal.shape[0]:
@@ -196,14 +222,17 @@ def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sampl
 	ax.set_title(figname)
 	if save_dir:
 		plt.savefig(f'{save_dir}/{figname}.png')
+		plt.close(fig)
 	else:
 		plt.show()
 
 def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sample_duration_s=None):
-	plot_df_src = pd.DataFrame(columns=['mels','event_start','event_duration'])
+	plot_df_src = pd.DataFrame(columns=['rms','pitch','mels','event_start','event_duration'])
 	for e in src_corpus_entry['events']:
 		if e['mel'].shape[0] > 0:
 			new_row_data = {} 
+			new_row_data['rms'] = e['rms']
+			new_row_data['pitch'] = e['pitch']
 			new_row_data['mels'] = e['mel'].mean()
 			new_row_data['event_start'] = e['event_start']
 			new_row_data['event_duration'] = e['event_duration']
@@ -212,16 +241,18 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	sample_start = sample_start_s * sample_rate
 	if sample_duration_s:
 		sample_duration = sample_duration_s * sample_rate
-	plot_feature_src = 'mels'
+	plot_feature_src = 'pitch'
 	plot_df_src[plot_feature_src] = 2*((plot_df_src[plot_feature_src] - plot_df_src[plot_feature_src].min())/(plot_df_src[plot_feature_src].max() - plot_df_src[plot_feature_src].min())) - 1
 	plot_df_src = plot_df_src[plot_df_src['event_start'] > sample_start]
 	if sample_duration_s and (sample_start+sample_duration) < signal_src.shape[0]:
 		plot_df_src = plot_df_src[plot_df_src['event_start'] < sample_start+sample_duration]
 	plot_df_src['event_start'] = plot_df_src['event_start'] - sample_start
 
-	plot_df_tgt = pd.DataFrame(columns=['mels','event_start','event_duration'])
+	plot_df_tgt = pd.DataFrame(columns=['rms','pitch','mels','event_start','event_duration'])
 	for e in tgt_corpus_entry['events']:
 		new_row_data = {} 
+		new_row_data['rms'] = e['rms']
+		new_row_data['pitch'] = e['pitch']
 		new_row_data['mels'] = e['mel'].mean()
 		new_row_data['event_start'] = e['event_start']
 		new_row_data['event_duration'] = e['event_duration']
@@ -230,7 +261,7 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	sample_start = sample_start_s * sample_rate
 	if sample_duration_s:
 		sample_duration = sample_duration_s * sample_rate
-	plot_feature_tgt = 'mels'
+	plot_feature_tgt = 'pitch'
 	plot_df_tgt[plot_feature_tgt] = 2*((plot_df_tgt[plot_feature_tgt] - plot_df_tgt[plot_feature_tgt].min())/(plot_df_tgt[plot_feature_tgt].max() - plot_df_tgt[plot_feature_tgt].min())) - 1
 	plot_df_tgt = plot_df_tgt[plot_df_tgt['event_start'] > sample_start]
 	if sample_duration_s and (sample_start+sample_duration) < signal_tgt.shape[0]:
@@ -277,6 +308,7 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	songname = src_corpus_entry['filename'].split('/')[-2]
 	if save_dir:
 		fig.savefig(f'{save_dir}/{songname}.png')
+		plt.close(fig)
 	else:
 		plt.show()
 
@@ -328,6 +360,7 @@ if __name__ == "__main__":
 			json.dump(processing_params, f, ensure_ascii=False, indent=4)
 
 		for audiofile in corpus_files:
+			print(audiofile)
 			trackname = audiofile.split('/')[-1].split('.')[0]
 			song_name = audiofile.split('/')[-2]
 			signal, _ = librosa.load(audiofile, sr=sr, mono=True)

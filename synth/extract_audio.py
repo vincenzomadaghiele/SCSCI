@@ -16,7 +16,7 @@ if __name__ == '__main__':
     RECORDING_TIME = 10
     sr = 44100
     hop_size = 256
-    SYNTH_NAME = 'Snare'
+    SYNTH_NAME = 'TimbreTheremin'
     SAVE_FILEPATH = f'{SAVE_FILEPATH}/{SYNTH_NAME}'
     os.makedirs(SAVE_FILEPATH, exist_ok=True)
 
