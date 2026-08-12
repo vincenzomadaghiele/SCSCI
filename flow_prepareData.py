@@ -13,7 +13,7 @@ from utils.data import AudioDataset, CompSynthesizerDataset
 
 if __name__ == '__main__': 
 
-    SYNTH_NAME = 'Snare'
+    SYNTH_NAME = 'TimbreTheremin'
     dataset_dir = f'./synth/datasets/{SYNTH_NAME}'
     dset = AudioDataset(dataset_dir, paramsdir=f'./synth/params/{SYNTH_NAME}.txt', 
                         data='mel_mfcc', mean={'mfcc':0.0,'mel':0.0}, var={'mfcc':1.0, 'mel':1.0})

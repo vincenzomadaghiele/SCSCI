@@ -1,25 +1,28 @@
-from signalflow import *
 import time
-import numpy as np
 import random
+import math
+import numpy as np
+from signalflow import *
 
 
 class TimbreTheremin(Patch):
-    def __init__(self, parameter_values: list = [0,0,0,0,0,0]):
+    def __init__(self, parameter_values: list = [0,0,0,0,0,0,0,0]):
         super().__init__()
 
-        frequency = self.add_input(f"frequency", parameter_values[0])
+        frequency = self.add_input(f"frequency", parameter_values[0]) # Hz
         gain = self.add_input(f"gain", parameter_values[1])
-        timbre = self.add_input(f"timbre", parameter_values[2])
-        A = self.add_input(f"A", parameter_values[3])
-        D = self.add_input(f"D", parameter_values[3])
-        S = self.add_input(f"S", parameter_values[4])
-        R = self.add_input(f"R", parameter_values[5])
+        sine_tri = self.add_input(f"sine_tri", parameter_values[2])
+        saw_square = self.add_input(f"saw_square", parameter_values[3])
+        A = self.add_input(f"A", parameter_values[4])
+        D = self.add_input(f"D", parameter_values[5])
+        S = self.add_input(f"S", parameter_values[6])
+        R = self.add_input(f"R", parameter_values[7])
         gate = self.add_input("gate", 1.0)
 
-        frequency = ScaleLinExp(input=frequency, a=0, b=1, c=50, d=11050)
-        gain = ScaleLinLin(input=gain, a=0, b=1, c=0, d=1)
-        timbre = ScaleLinLin(input=gain, a=0, b=1, c=0, d=1)
+        frequency = Clip(frequency, 50, 11050)
+        gain = Clip(gain, 0, 1)
+        sine_tri = Clip(sine_tri, 0, 1)
+        saw_square = Clip(saw_square, 0, 1)
         A = ScaleLinLin(input=A, a=0, b=1, c=0.001, d=0.01)
         D = ScaleLinLin(input=D, a=0, b=1, c=0.1, d=0.6)
         S = ScaleLinLin(input=S, a=0, b=1, c=0.3, d=1)
@@ -28,17 +31,18 @@ class TimbreTheremin(Patch):
         # create synth
         sine = SineOscillator(frequency)
         tri = TriangleOscillator(frequency)
-        # square = SquareOscillator(frequency)
+        saw = SawOscillator(frequency)
+        square = SquareOscillator(frequency)
         env = ADSREnvelope(A, D, S, R, gate=gate)
         # env = ASREnvelope(A, S, R)
-        # output = sine * env * gain
-        output = (tri * timbre + sine * (1-timbre)) * env * gain
+        output1 = (tri * sine_tri + sine * (1-sine_tri)) * 0.8
+        output2 = (saw * saw_square + square * (1-saw_square)) * 0.2
+        output = (output1 + output2) * env * gain
 
         # forward
-        # self.set_trigger_node(env)
         self.set_output(output)
         self.set_auto_free(True)
-        # self.set_auto_free(False)
+        # self.set_trigger_node(env)
 
 
 if __name__ == "__main__":
@@ -69,6 +73,8 @@ if __name__ == "__main__":
         voice = TimbreTheremin()
         new_parameters = np.random.rand(N_params).tolist()
         for i, param_name in enumerate(param_names):
+            if param_name == "frequency":
+                new_parameters[i] = math.log2(new_parameters[i]+1) * 2000 + 50
             voice.set_input(param_name, new_parameters[i]) 
         voice.set_input("gain", 1 / NUM_VOICES)
         voice.set_input("gate", 1)

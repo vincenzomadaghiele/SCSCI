@@ -1,3 +1,4 @@
+import os
 import sys
 import argparse
 from signalflow import *
@@ -9,6 +10,10 @@ from patches.granular import Granular
 from patches.snare import Snare
 from patches.theremin import ADSRTheremin
 from patches.timbreTheremin import TimbreTheremin
+
+# from CONSTANTS import *
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 class Synth:
     def __init__(self, 
@@ -26,9 +31,6 @@ class Synth:
     def connectGraph(self):
         # intialize graph
         self.graph = AudioGraph(output_device=AudioOut_Dummy(2), start=False)
-        # initialize buffers
-        self.buffer = Buffer(1, int(self.graph.sample_rate * self.buffer_size))
-        # intialize graph
         if self.synth_name == 'Benjolin':
             self.synth = Benjolin(self.graph) 
         elif self.synth_name == 'Granular':
@@ -39,12 +41,17 @@ class Synth:
             self.synth = TimbreTheremin() 
         else:
             self.synth = ADSRTheremin() 
+    def forward(self, event_duration=0.1):
+        buffer_event = Buffer(1, int(self.graph.sample_rate * event_duration))
+        buffer_decay = Buffer(1, int(self.graph.sample_rate * (self.buffer_size-event_duration)))
+        self.synth.set_input("gate", 1)
         self.synth.play()
-    def forward(self):
-        # self.synth.set_input("gate", 1)
-        self.synth.trigger()
-        self.graph.render_to_buffer(self.buffer)
-        rendered_array = self.buffer.data[0,:]
+        self.graph.render_to_buffer(buffer_event)
+        rendered_event = buffer_event.data[0,:]
+        self.synth.set_input("gate", 0) # record decay
+        self.graph.render_to_buffer(buffer_decay)
+        rendered_decay = buffer_decay.data[0,:]
+        rendered_array = np.concatenate((rendered_event, rendered_decay), axis=0)
         return rendered_array
     def setParameters(self, new_parameters_names: list, new_parameters_values: list):
         for i, param_name in enumerate(new_parameters_names):
@@ -64,37 +71,45 @@ if __name__ == "__main__":
 
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--SYNTH_NAME', type=str, default='Theremin',
-                        help='synth name among Theremin, Granular, Benjolin, Snare')
-    parser.add_argument('--SAVE_FILEPATH', type=str, default='./datasets',
-                        help='path of where to save the soundfile')
-    parser.add_argument('--SYNTH_PARAMETERS', type=str, default='0.5-0.5-0.5-0.5-0.5-0.5',
-                        help='Granular parameters')
-    parser.add_argument('--RECORDING_TIME', type=int, default=5,
-                        help='recording time in seconds')
-    parser.add_argument('--SAMPLE_RATE', type=int, default=44100,
-                        help='sample rate')
-    parser.add_argument('--HOP_SIZE', type=int, default=2048,
-                        help='FFT hop size')
+    parser.add_argument('--SYNTH_NAME', type=str, default='Theremin', help='synth name among Theremin, Granular, Benjolin, Snare')
+    parser.add_argument('--SAVE_FILEPATH', type=str, default='./datasets', help='path of where to save the soundfile')
+    parser.add_argument('--GAIN', type=float, default=440, help='value of gain parameter of synth [in Hz]')
+    parser.add_argument('--FREQUENCY', type=float, default=0.8, help='value of frequency parameter (if available in synth) [0-1]')
+    parser.add_argument('--DURATION', type=float, default=0.1, help='duration of synthesized event in seconds')
+    parser.add_argument('--ADSR', type=str, default='0.1-0.1-0.1-0.1', help='ASR envelope parameter values [0-1]')
+    parser.add_argument('--TIMBRE_PARAMETERS', type=str, default='0.5-0.5-0.5-0.5-0.5-0.5', help='values timbre parameters [0-1]')
+    parser.add_argument('--RECORDING_TIME', type=int, default=5, help='recording time in seconds')
+    parser.add_argument('--SAMPLE_RATE', type=int, default=44100, help='sample rate')
+    parser.add_argument('--HOP_SIZE', type=int, default=2048, help='FFT hop size')
     args = parser.parse_args(sys.argv[1:])
 
-    ## DEFINE SCRIPT PARAMETERS
-    SYNTH_NAME = args.SYNTH_NAME
-    SAVE_FILEPATH = args.SAVE_FILEPATH
-    SYNTH_PARAMETERS = args.SYNTH_PARAMETERS
-    RECORDING_TIME = args.RECORDING_TIME
-    sr = args.SAMPLE_RATE
-    hop_size = args.HOP_SIZE
+    synth = Synth(args.SYNTH_NAME, args.SAMPLE_RATE, args.HOP_SIZE, args.RECORDING_TIME)
+    timbre_parameter_values = [float(sy) for sy in args.TIMBRE_PARAMETERS.split('-')]
+    ADSR = [float(sy) for sy in args.ADSR.split('-')]
 
-    synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
-    synth_parameters = SYNTH_PARAMETERS.split('-')
-    synth_parameters = [float(sy) for sy in synth_parameters]
+    parameters_names = synth.getInputs()
 
-    param_names = synth.getInputs()
-    param_names.remove("gain")
-    N_params = len(param_names)
-    synth.setParameters(param_names, synth_parameters)
-    synth.setParameters(["gain"], [0.8])
-    SYNTH_PARAMETERS = '-'.join([str(sy) for sy in synth_parameters])
-    sf.write(f'{SAVE_FILEPATH}/{SYNTH_PARAMETERS}.wav', synth.forward(), sr, subtype='PCM_24')
+    # THESE ARE THE SAME FOR ALL SYNTHS
+    frequency_param_name = "frequency"
+    gain_param_name = "gain"
+    gate_param_name = "gate"
+    envelope_param_names = ['A','D','S','R']
+    # THESE CAN CHANGE AMONG SYNTHS
+    non_timbre_params_names = [frequency_param_name, gain_param_name, gate_param_name]
+    non_timbre_params_names += envelope_param_names
+    timbre_param_names = [p for p in parameters_names if p not in non_timbre_params_names]
+    timbre_parameter_values = timbre_parameter_values[:len(timbre_param_names)]
+    # write timbre params to txt
+    with open(f"./params/{args.SYNTH_NAME}.txt", "w") as file:
+        file.write("\n".join(str(item) for item in timbre_param_names))
+
+    N_timbre_params = len(timbre_param_names)
+    synth.setParameters(timbre_param_names, timbre_parameter_values)
+    non_timbre_params_names.remove("gate")
+    synth.setParameters(non_timbre_params_names, [args.GAIN, args.FREQUENCY, args.DURATION, ADSR[0], ADSR[1], ADSR[2], ADSR[3]])
+    if frequency_param_name in parameters_names:
+        synth.setParameters([frequency_param_name], [args.FREQUENCY])
+
+    timbre_parameter_values = '-'.join([str(sy) for sy in timbre_parameter_values])
+    sf.write(f'{args.SAVE_FILEPATH}/{timbre_parameter_values}.wav', synth.forward(args.DURATION), args.SAMPLE_RATE, subtype='PCM_24')
     synth.close()

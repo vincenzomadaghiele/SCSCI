@@ -434,8 +434,9 @@ Load any given dataset and return DataLoaders
 ###################
 """
 def load_dataset(args, **kwargs):
-    if (args.dataset in ['Theremin'], ["Granular"],["Benjolin"],["Snare"]):
+    if (args.dataset in ['Theremin'], ['TimbreTheremin'], ["Granular"],["Benjolin"],["Snare"]):
         params = {'Theremin':'Theremin.txt', 
+                  'TimbreTheremin':'TimbreTheremin.txt', 
                   'Granular':'Granular.txt',
                   'Benjolin':'Benjolin.txt', 
                   'Snare':'Snare.txt'}
