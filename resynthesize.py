@@ -63,7 +63,7 @@ def melToFlowLatents(mels, flow_model, mean, var, num_MELS=64, melspec_size=80):
 if __name__ == '__main__': 
 
     # save models by synth
-    SYNTH_NAME = 'Theremin'
+    SYNTH_NAME = 'TimbreTheremin'
 
     # LOAD FLOW MODEL
     device = torch.device('cpu')
@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
     # LOAD AUDIO TRACK
     corpus_name = 'moisesdb-BassDrums'
-    song_name = '2e5d996d-43f3-4359-b7c5-afebe9997556'
+    song_name = '07fb2df2-91d6-458d-9230-9638b4edac08'
     src_track_name = 'bass'
     tgt_track_name = 'drums'
     filepath = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}.wav'
@@ -95,6 +95,17 @@ if __name__ == '__main__':
     with open(f'./synth/datasets/{SYNTH_NAME}/vars.json') as f:
         d = json.load(f)
         var = d['mel']
+
+    # THESE ARE THE SAME FOR ALL SYNTHS
+    frequency_param_name = "frequency"
+    gain_param_name = "gain"
+    gate_param_name = "gate"
+    envelope_param_names = ['A','D','S','R']
+    # THESE CAN CHANGE AMONG SYNTHS
+    non_timbre_params_names = [frequency_param_name, gain_param_name, gate_param_name]
+    non_timbre_params_names += envelope_param_names
+    timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
+
 
     # LOAD VAE
     corpus_path = f'corpus/{corpus_name}'
@@ -121,6 +132,7 @@ if __name__ == '__main__':
         event_starts.append(event['event_start'])
         if event['rms'] != 0:
             mels = event['mel']
+            duration = event['event_duration']
             rms = event['rms']
             pitch = event['pitch']
             # COMPUTE VAE LATENTS
@@ -130,11 +142,17 @@ if __name__ == '__main__':
             z_tilde, predicted_parameters = melToFlowLatents(mels, model, mean, var)
             flow_latents.append(z_tilde)
             # RE-SYNTHESIZE SOUND EVENT
+            print(duration / sr)
+            print(pitch)
+            print(rms)
             predicted_parameters = predicted_parameters.tolist()
-            predicted_parameters[0] = float(np.clip(pitch / 11050, 220, 660)) # freq
-            predicted_parameters[1] = float(np.clip(rms*50, 0, 1)) # gain
-            synth.setParameters(param_names, predicted_parameters)
-            synthesized_event = synth.forward() # add possibility of 'note off' to handle different durations
+            synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
+            synth.setParameters(timbre_param_names, predicted_parameters)
+            synth.setParameters([frequency_param_name], [pitch])
+            synth.setParameters([gain_param_name], [float(np.clip(rms*50, 0, 1))])
+            synth.setParameters(envelope_param_names, [0.5, 0.5, 0.5, 0.5])
+            synthesized_event = synth.forward(duration / sr) 
+            synth.close()
             if synthesized_event.shape[0] > event['event_duration']:
                 event['resynthesized'] = synthesized_event[:event['event_duration']]
             else:

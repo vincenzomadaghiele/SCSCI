@@ -332,9 +332,9 @@ def extractEvents(signal,
 if __name__ == "__main__":
 
 	# extract 
-	corpus_name = 'moisesdb-BassDrums'
-	src_track_name = 'bass'
-	tgt_track_name = 'drums'
+	corpus_name = 'guitar-duo'
+	src_track_name = 'guitar1'
+	tgt_track_name = 'guitar2'
 	corpus_path = f'corpus/{corpus_name}'
 	corpus_dirs = os.listdir(corpus_path)
 	src_tgt = []

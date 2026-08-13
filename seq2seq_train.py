@@ -43,12 +43,17 @@ def trainLoop(model, train_dataloader, loss_fn, opt, device, PAD_TOKEN):
     for batch in train_dataloader:
         X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
         y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
-        y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(batch[2].shape[0],1,batch[2].shape[1])
+        y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0],batch[2].shape[1])
+        # y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0], batch[2].shape[1])
         # generate pad mask before t2v (t2v is non-linear and padding has to be applied before)
-        src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device)
-        tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device)
-        tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
-        pred = model(X, y, tgt_mask=tgt_mask, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
+        src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device).to(torch.bool)
+        tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device).to(torch.bool)
+        # tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
+        # src_mask = model.transformer.generate_square_subsequent_mask(X.size(1), device=device).to(torch.bool)
+        # tgt_mask = model.transformer.generate_square_subsequent_mask(y.size(1), device=device).to(torch.bool)
+        pred = model(X, y, 
+                    #  src_mask=src_mask, tgt_mask=tgt_mask, 
+                     src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
         loss = loss_fn(pred, y_expected)
         opt.zero_grad()
         loss.backward()
@@ -63,12 +68,18 @@ def validationLoop(model, val_dataloader, loss_fn, opt, device, PAD_TOKEN):
         for batch in val_dataloader:
             X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
             y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
-            y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(batch[2].shape[0],1,batch[2].shape[1])
+            y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0], batch[2].shape[1])
+            # y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0], batch[2].shape[1])
             # generate pad mask before t2v (t2v is non-linear and padding has to be applied before)
-            src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device)
-            tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device)
-            tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
-            pred = model(X, y, tgt_mask=tgt_mask, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
+            src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device).to(torch.bool)
+            tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device).to(torch.bool)
+            # tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
+            # src_mask = model.transformer.generate_square_subsequent_mask(X.size(1), device=device).to(torch.bool)
+            # tgt_mask = model.transformer.generate_square_subsequent_mask(y.size(1), device=device).to(torch.bool)
+
+            pred = model(X, y, 
+                        #  src_mask=src_mask, tgt_mask=tgt_mask, 
+                         src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
             loss = loss_fn(pred, y_expected)
             total_loss += loss.detach().item()
     return total_loss / len(val_dataloader)
@@ -83,13 +94,13 @@ if __name__ == '__main__':
     elif torch.backends.mps.is_available():
         DEVICE = torch.device("mps")
 
-    corpus_name = 'moisesdb-BassDrums'
+    corpus_name = 'guitar-duo'
     corpus_path = f'corpus/{corpus_name}'
-    src_track_name = 'bass'
-    tgt_track_name = 'drums'
+    src_track_name = 'guitar1'
+    tgt_track_name = 'guitar2'
     latent_dim = 8
-    N_latents_tgt = 7
-    SYNTH_NAME = 'Snare'
+    N_latents_tgt = 2
+    SYNTH_NAME = 'TimbreTheremin'
 
     # TRAIN SEQ2SEQ ON LATENTS
     training_parameters = {}
@@ -116,9 +127,17 @@ if __name__ == '__main__':
     model_load_path = None
 
     features_source = [f'latent-{j}' for j in range(latent_dim)]
+    features_source.append('rms')
+    features_source.append('pitch')
     features_source.append('event_duration')
     features_target = [f'latent-{j}' for j in range(N_latents_tgt)]
+    features_target.append('rms')
+    features_target.append('pitch')
     features_target.append('event_duration')
+
+    # features_source = ['rms', 'pitch', 'event_duration']
+    # features_target = ['rms', 'pitch', 'event_duration']
+
 
     # MAKE SAVE DIRECTORY
     today = date.today()

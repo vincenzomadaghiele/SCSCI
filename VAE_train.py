@@ -98,8 +98,8 @@ if __name__ == "__main__":
         DEVICE = torch.device("mps")
 
     # load data
-    corpus_name = 'moisesdb-BassDrums'
-    src_track_name = 'bass'
+    corpus_name = 'guitar-duo'
+    src_track_name = 'guitar1'
     corpus_path = f'corpus/{corpus_name}'
     corpus_dirs = os.listdir(corpus_path)
     corpus_dirs = [c for c in corpus_dirs if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full']]

@@ -23,7 +23,7 @@ if __name__ == '__main__':
     RANDOM_PERMUTATIONS = True
     N_timbre_parameters = 2
     if RANDOM_PERMUTATIONS:
-        NUM_SAMPLES = 10000
+        NUM_SAMPLES = 5000
         permutations = []
         for _ in range(NUM_SAMPLES):
             pp = list(np.random.rand(N_timbre_parameters))

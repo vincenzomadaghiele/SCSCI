@@ -36,7 +36,9 @@ class TransformerDiscreteT2V(nn.Module):
 											num_encoder_layers=num_encoder_layers,
 											num_decoder_layers=num_decoder_layers,
 											dim_feedforward=dim_feedforward,
-											dropout=dropout_p)
+											dropout=dropout_p,
+											# batch_first=True
+											)
 		self.out = nn.Linear(dim_model, num_featuresout-1)
 
 		self.positionalEncoding = True
@@ -45,7 +47,7 @@ class TransformerDiscreteT2V(nn.Module):
 														dropout_p=dropout_p, 
 														max_len=5000)
 
-	def forward(self, src, tgt, tgt_mask=None, src_pad_mask=None, tgt_pad_mask=None):
+	def forward(self, src, tgt, src_mask=None, tgt_mask=None, src_pad_mask=None, tgt_pad_mask=None):
 		# Src size must be (batch_size, sequence_length, src)
 		# Tgt size must be (batch_size, sequence_length, tgt)
 		src = self.t2v_src(src)
@@ -62,15 +64,24 @@ class TransformerDiscreteT2V(nn.Module):
 		src = src.permute(1,0,2)
 		tgt = tgt.permute(1,0,2)
 		# Transformer blocks - Out size = (sequence_length, batch_size, num_tokens)
-		tgt_mask=None
+		# src_mask=None
+		# tgt_mask=None
 		transformer_out = self.transformer(src, 
 											tgt, 
-											tgt_mask=tgt_mask, 
+											# src_mask=src_mask, 
+											# tgt_mask=tgt_mask, 
 											src_key_padding_mask=src_pad_mask, 
-											tgt_key_padding_mask=tgt_pad_mask)
+											tgt_key_padding_mask=tgt_pad_mask, 
+											# src_is_causal=True,
+											# tgt_is_causal=True
+											)
+		# print(f'transformer out: {transformer_out.shape}')
 		transformer_out = transformer_out[0,:,:].reshape(1, transformer_out.shape[1], transformer_out.shape[2])
+		# transformer_out = transformer_out[:,-1,:].reshape(transformer_out.shape[0], 1, transformer_out.shape[2])
+		# print(f'reshaped: {transformer_out.shape}')
 		out = self.out(transformer_out)
-		return out.permute(1,0,2)
+		# print(f'out: {out.shape}')
+		return out#.permute(1,0,2)
 
 	def get_tgt_mask(self, size) -> torch.tensor:
 		mask = torch.tril(torch.ones(size, size) == 1) # Lower triangular matrix

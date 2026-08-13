@@ -26,24 +26,39 @@ def makeCrownWindow(size, fade_perc = 0.01):
     crown_window[crown_window.shape[0]-fade_num_samples:] = fade_out
     return crown_window
 
+np.set_printoptions(precision=3, suppress=True)
+
 if __name__ == '__main__': 
 
     # device 
     DEVICE = torch.device("cpu")
 
-    corpus_name = 'moisesdb-BassDrums'
-    SYNTH_NAME = 'Theremin'
-    model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/1785140002-transformerDiscreteT2V'
+    corpus_name = 'moisesdb-DrumsBass'
+    SYNTH_NAME = 'TimbreTheremin'
+    transformer_name = '1786630759-transformerDiscreteT2V'
+    song_name = '07fb2df2-91d6-458d-9230-9638b4edac08'
+    src_track_name = 'drums'
+    model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
+
+    model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
     model_load_path = f'{model_dir}/best_model.pth'
 
     N_latents_src = 8
-    N_latents_tgt = 5
+    N_latents_tgt = 2
     features_source = [f'latent-{j}' for j in range(N_latents_src)]
+    features_source.append('rms')
+    features_source.append('pitch')
     features_source.append('event_duration')
     features_target = [f'latent-{j}' for j in range(N_latents_tgt)]
+    features_target.append('rms')
+    features_target.append('pitch')
     features_target.append('event_duration')
+
+    # features_source = ['rms', 'pitch', 'event_duration']
+    # features_target = ['rms', 'pitch', 'event_duration']
+
 
     # create model
     model = TransformerDiscreteT2V(
@@ -67,8 +82,6 @@ if __name__ == '__main__':
     tgt_time_scaler = joblib.load(f'{model_dir}/target_time_scaler.pkl')
 
     # LOAD AUDIO FILE
-    song_name = '07fb2df2-91d6-458d-9230-9638b4edac08'
-    src_track_name = 'bass'
     src_audio_filepath = f'corpus/{corpus_name}/{song_name}/{src_track_name}.wav'
     src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
     pred_signal = np.zeros(src_signal.shape[0])
@@ -87,9 +100,8 @@ if __name__ == '__main__':
     VAE_model.eval()
 
     # LOAD FLOW MODEL FOR TGT COMPUTATION
-    SYNTH_NAME = 'Theremin'
+    # SYNTH_NAME = 'TimbreTheremin'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
-    model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
     flow_model.eval()
     # LOAD DATASET STATS FOR NORMALIZATION
@@ -106,16 +118,24 @@ if __name__ == '__main__':
     synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
     param_names = synth.getInputs()
     N_params = len(param_names)
+    # THESE ARE THE SAME FOR ALL SYNTHS
+    frequency_param_name = "frequency"
+    gain_param_name = "gain"
+    gate_param_name = "gate"
+    envelope_param_names = ['A','D','S','R']
+    # THESE CAN CHANGE AMONG SYNTHS
+    non_timbre_params_names = [frequency_param_name, gain_param_name, gate_param_name]
+    non_timbre_params_names += envelope_param_names
+    timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
 
     # encode events
-    event_sequence = extractEvents(src_signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, 
-                                   min_event_duration_samples, max_event_duration_samples)
+    event_sequence = extractEvents(src_signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
 
     transform = transforms.Compose([transforms.Resize(image_size), transforms.CenterCrop(image_size)])
     src_events = []
     for event in event_sequence:
         # detect rest
-        if event['mel'].mean() != 0 and event['mel'].shape[1] > 0:
+        if event['rms'] != 0:
             prep_event = librosa.power_to_db(event['mel'], ref=np.max)
             prep_event = torch.clip(torch.from_numpy((prep_event+80) / 80), min=0, max=1)
             prep_event = torch.unsqueeze(prep_event, 0).to(torch.float32)
@@ -125,13 +145,17 @@ if __name__ == '__main__':
                 event_latents, _ = VAE_model.Encoder(prep_event)
             event_latents = event_latents[0].detach().cpu().numpy().tolist()
         else:
-            event_latents = (np.zeros(latent_dim)-6).tolist()
+            event_latents = (np.zeros(latent_dim)).tolist()
+        event_latents.append(event['rms'])
+        event_latents.append(event['pitch'])
         event_latents.append(event['event_duration'])
         event_latents.append(event['event_start'])
         event_latents.append(src_audio_filepath)
         src_events.append(event_latents)
     src_events = np.array(src_events)
-    columns = [f'latent-{j}' for j in range(src_events.shape[1]-3)]
+    columns = [f'latent-{j}' for j in range(N_latents_src)]
+    columns.append('rms')
+    columns.append('pitch')
     columns.append('event_duration')
     columns.append('event_start')
     columns.append('filename')
@@ -193,29 +217,47 @@ if __name__ == '__main__':
         input_tgt_array_norm = torch.tensor(input_tgt_array_norm.reshape(1, input_tgt_array_norm.shape[0], input_tgt_array_norm.shape[1])).type(torch.FloatTensor).to(DEVICE)
         start_model_time = time.time()
         with torch.no_grad():
-            src_pad_mask = model.create_pad_mask(input_src_array_norm, pad_token=training_parameters['pad_token']).to(DEVICE)
-            tgt_pad_mask = model.create_pad_mask(input_tgt_array_norm, pad_token=training_parameters['pad_token']).to(DEVICE)
-            tgt_mask = model.get_tgt_mask(input_tgt_array_norm.size(1)).to(DEVICE)
-            y = model(input_src_array_norm, input_tgt_array_norm, tgt_mask=tgt_mask, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0]).detach().cpu().numpy()
+            src_pad_mask = model.create_pad_mask(input_src_array_norm, pad_token=training_parameters['pad_token']).to(DEVICE).to(torch.bool)
+            tgt_pad_mask = model.create_pad_mask(input_tgt_array_norm, pad_token=training_parameters['pad_token']).to(DEVICE).to(torch.bool)
+            # tgt_mask = model.get_tgt_mask(input_tgt_array_norm.size(1)).to(DEVICE)
+            # src_mask = model.transformer.generate_square_subsequent_mask(input_src_array_norm.size(1), device=DEVICE).to(torch.bool)
+            # tgt_mask = model.transformer.generate_square_subsequent_mask(input_tgt_array_norm.size(1), device=DEVICE).to(torch.bool)
+            y = model(input_src_array_norm, input_tgt_array_norm, #tgt_mask=tgt_mask, 
+                      src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0]).detach().cpu().numpy()
         end_model_time = time.time()
-        y_denorm = tgt_scaler.inverse_transform(y.reshape(y.shape[0], y.shape[2]))
-        y_pred = y_denorm[-1,:]
+        # y_denorm = tgt_scaler.inverse_transform(y.reshape(y.shape[0], y.shape[2]))
+        y_pred = tgt_scaler.inverse_transform(y.reshape(1, -1)).reshape(-1)
+        print(y_pred)
+        # y_pred = y_denorm[-1,:]
         # print(f'{pred_signal_sample}: {next_token}')
+        pred_latents = y_pred[:N_latents_tgt]
+        pred_rms = y_pred[N_latents_tgt]
+        pred_frequency = y_pred[N_latents_tgt+1]
+        pred_duration = int(y_pred[N_latents_tgt+2])
 
         # retreive sound segment
         start_lookup_time = time.time()
-        pred_duration = int(y_pred[-1])
-        # print(y_pred[:-1])
+        # pred_duration = int(y_pred[-1])
+        # print(pred_rms)
         # detect rest
-        if all(y_pred[:-1].tolist()) < -4:
+        if pred_rms < 0.0005:
             sound_segment = np.zeros(pred_duration)
         else:
-            next_latents = torch.tensor(y_pred[:-1]).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
+            next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
             with torch.no_grad():
                 predicted_parameters = flow_model.regression_model(next_latents) # parameters
             predicted_parameters = predicted_parameters[0].detach().cpu().numpy()
-            synth.setParameters(param_names, predicted_parameters.tolist())
-            sound_segment = synth.forward() # add possibility of 'note off' to handle different durations synth.forward(duration)
+            # print(predicted_parameters)
+            synth.close()
+            synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
+            synth.setParameters(['frequency'], [pred_frequency])
+            synth.setParameters(['gain'], [float(np.clip(pred_rms*10, 0, 1))])
+            synth.setParameters(envelope_param_names, [0.1, 0.1, 0.5, 0.1])
+            # synth.setParameters(timbre_param_names, [0.1, 0.1])
+            # synth.setParameters(['frequency'], [np.random.rand() * 11000 + 50])
+            # synth.setParameters(['gain'], [np.random.rand()])
+            synth.setParameters(timbre_param_names, predicted_parameters.tolist())
+            sound_segment = synth.forward(pred_duration / sr) # add possibility of 'note off' to handle different durations synth.forward(duration)
             sound_segment = sound_segment[:pred_duration]
         end_lookup_time = time.time()
 
@@ -270,32 +312,33 @@ if __name__ == '__main__':
     sf.write(f'{results_dir}/{song_name}_{src_track_name}.wav', src_signal, sr, subtype='PCM_24')
     sf.write(f'{results_dir}/{song_name}_{SYNTH_NAME}.wav', pred_signal, sr, subtype='PCM_24')
 
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(2, figsize=(16, 6))
-    librosa.display.waveshow(y=src_signal, sr=sr, color="black", axis='time', ax=ax[0], alpha=0.2)
-    librosa.display.waveshow(y=pred_signal, sr=sr, color="black", axis='time', ax=ax[1], alpha=0.2)
-    ax[0].set_title('original')
-    ax[1].set_title('synthesized')
-    ax[0].set_xticks([])
-    ax[0].set_xlabel('')
-    ax[1].set_xlabel('time')
-    ax[0].set_ylim([-1,1])
-    ax[1].set_ylim([-1,1])
-    fig.savefig(f'{results_dir}/{song_name}_{SYNTH_NAME}_synthesized.png')
+    try:
+        # EXTRACT EVENTS FROM AUDIO FILES
+        src_events = extractEvents(src_signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
+        tgt_events = extractEvents(pred_signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
 
+        src_file_event = {}
+        src_file_event['filename'] = f'{results_dir}/{song_name}_{src_track_name}.wav'
+        src_file_event['song_name'] = song_name
+        src_file_event['events'] = src_events
+        plotEvents(src_file_event, sr, save_dir=results_dir)
+        tgt_file_event = {}
+        tgt_file_event['filename'] = f'{results_dir}/{song_name}_{SYNTH_NAME}.wav'
+        tgt_file_event['song_name'] = song_name
+        tgt_file_event['events'] = tgt_events
+        plotEvents(tgt_file_event, sr, save_dir=results_dir)
+        plotPairedEvents(src_file_event, tgt_file_event, sr, save_dir=results_dir)
 
-    # # EXTRACT EVENTS FROM AUDIO FILES
-    # src_events = extractEvents(src_signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
-    # tgt_events = extractEvents(pred_signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
-
-    # src_file_event = {}
-    # src_file_event['filename'] = f'{results_dir}/{song_name}_{src_track_name}.wav'
-    # src_file_event['song_name'] = song_name
-    # src_file_event['events'] = src_events
-    # plotEvents(src_file_event, sr, save_dir=results_dir)
-    # tgt_file_event = {}
-    # tgt_file_event['filename'] = f'{results_dir}/{song_name}_{SYNTH_NAME}.wav'
-    # tgt_file_event['song_name'] = song_name
-    # tgt_file_event['events'] = tgt_events
-    # plotEvents(tgt_file_event, sr, save_dir=results_dir)
-    # plotPairedEvents(src_file_event, tgt_file_event, sr, save_dir=results_dir)
+    except:
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(2, figsize=(16, 6))
+        librosa.display.waveshow(y=src_signal, sr=sr, color="black", axis='time', ax=ax[0], alpha=0.2)
+        librosa.display.waveshow(y=pred_signal, sr=sr, color="black", axis='time', ax=ax[1], alpha=0.2)
+        ax[0].set_title('original')
+        ax[1].set_title('synthesized')
+        ax[0].set_xticks([])
+        ax[0].set_xlabel('')
+        ax[1].set_xlabel('time')
+        ax[0].set_ylim([-1,1])
+        ax[1].set_ylim([-1,1])
+        fig.savefig(f'{results_dir}/{song_name}_{SYNTH_NAME}_synthesized.png')
