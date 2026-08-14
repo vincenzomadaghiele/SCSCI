@@ -33,11 +33,11 @@ if __name__ == '__main__':
     # device 
     DEVICE = torch.device("cpu")
 
-    corpus_name = 'moisesdb-DrumsBass'
+    corpus_name = 'guitar-duo'
+    src_track_name = 'guitar1'
     SYNTH_NAME = 'TimbreTheremin'
-    transformer_name = '1786630759-transformerDiscreteT2V'
-    song_name = '07fb2df2-91d6-458d-9230-9638b4edac08'
-    src_track_name = 'drums'
+    transformer_name = '1786722569-transformerDiscreteT2V'
+    song_name = 'recording2'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
@@ -56,8 +56,8 @@ if __name__ == '__main__':
     features_target.append('pitch')
     features_target.append('event_duration')
 
-    # features_source = ['rms', 'pitch', 'event_duration']
-    # features_target = ['rms', 'pitch', 'event_duration']
+    features_source = ['rms', 'pitch', 'event_duration']
+    features_target = ['rms', 'pitch', 'event_duration']
 
 
     # create model
@@ -167,11 +167,18 @@ if __name__ == '__main__':
     times_src = signal_df['event_start'].values.astype(float)
 
     import matplotlib.pyplot as plt
-    # plt.imshow(input_src[:,:-1].T)
+    # print(input_src.shape)
+    # plt.plot((input_src[:,0] - input_src[:,0].min()) / (input_src[:,0].max() - input_src[:,0].min()), label='rms')
+    # plt.plot((input_src[:,1] - input_src[:,1].min()) / (input_src[:,1].max() - input_src[:,1].min()), label='pitch')
+    # plt.plot((input_src[:,2] - input_src[:,2].min()) / (input_src[:,2].max() - input_src[:,2].min()),  label='duration')
+    # plt.legend()
+    # # plt.plot(input_src[:,2])
+    # # plt.imshow(input_src[:,:-1].T)
     # plt.show()
 
 
-    WINDOW_N_SAMPLES = FFT_window * sr
+    # WINDOW_N_SAMPLES = FFT_window * sr
+    WINDOW_N_SAMPLES = training_parameters['window_size_s'] * sr
 
     # predict output 
     input_src_array = np.zeros((1,len(features_source)+1))
@@ -205,14 +212,20 @@ if __name__ == '__main__':
         input_tgt_array_norm = ones_tgt
 
         # fig, ax = plt.subplots(2)
-        # c = ax[0].imshow(input_src_array_norm[:,:-1].T)
-        # b = ax[1].imshow(input_tgt_array_norm[:,:-1].T)
-        # fig.colorbar(c, ax=ax[0])
-        # fig.colorbar(b, ax=ax[1])
+        # ax[0].plot(input_src_array_norm[:,0])
+        # ax[0].plot(input_src_array_norm[:,1])
+        # ax[0].plot(input_src_array_norm[:,2])
+        # ax[1].plot(input_tgt_array_norm[:,0])
+        # ax[1].plot(input_tgt_array_norm[:,1])
+        # ax[1].plot(input_tgt_array_norm[:,2])
+        # ax[0].set_ylim([-5,5])
+        # ax[1].set_ylim([-5,5])
+        # # c = ax[0].imshow(input_src_array_norm[:,:-1].T)
+        # # b = ax[1].imshow(input_tgt_array_norm[:,:-1].T)
+        # # fig.colorbar(c, ax=ax[0])
+        # # fig.colorbar(b, ax=ax[1])
         # plt.show()
 
-        # input_src_array_norm = torch.tensor(input_src_array_norm.reshape(input_src_array_norm.shape[0], 1, input_src_array_norm.shape[1])).type(torch.FloatTensor).to(device)
-        # input_tgt_array_norm = torch.tensor(input_tgt_array_norm.reshape(input_tgt_array_norm.shape[0], 1, input_tgt_array_norm.shape[1])).type(torch.FloatTensor).to(device)
         input_src_array_norm = torch.tensor(input_src_array_norm.reshape(1, input_src_array_norm.shape[0], input_src_array_norm.shape[1])).type(torch.FloatTensor).to(DEVICE)
         input_tgt_array_norm = torch.tensor(input_tgt_array_norm.reshape(1, input_tgt_array_norm.shape[0], input_tgt_array_norm.shape[1])).type(torch.FloatTensor).to(DEVICE)
         start_model_time = time.time()
@@ -226,11 +239,12 @@ if __name__ == '__main__':
                       src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0]).detach().cpu().numpy()
         end_model_time = time.time()
         # y_denorm = tgt_scaler.inverse_transform(y.reshape(y.shape[0], y.shape[2]))
+        print(y.reshape(-1))
         y_pred = tgt_scaler.inverse_transform(y.reshape(1, -1)).reshape(-1)
-        print(y_pred)
         # y_pred = y_denorm[-1,:]
         # print(f'{pred_signal_sample}: {next_token}')
-        pred_latents = y_pred[:N_latents_tgt]
+        N_latents_tgt = 0
+        # pred_latents = y_pred[:N_latents_tgt]
         pred_rms = y_pred[N_latents_tgt]
         pred_frequency = y_pred[N_latents_tgt+1]
         pred_duration = int(y_pred[N_latents_tgt+2])
@@ -240,26 +254,26 @@ if __name__ == '__main__':
         # pred_duration = int(y_pred[-1])
         # print(pred_rms)
         # detect rest
-        if pred_rms < 0.0005:
+        if pred_rms < 0.0001:
             sound_segment = np.zeros(pred_duration)
+            y_pred = np.zeros_like(y_pred)
         else:
-            next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
-            with torch.no_grad():
-                predicted_parameters = flow_model.regression_model(next_latents) # parameters
-            predicted_parameters = predicted_parameters[0].detach().cpu().numpy()
+            # next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
+            # with torch.no_grad():
+            #     predicted_parameters = flow_model.regression_model(next_latents) # parameters
+            # predicted_parameters = predicted_parameters[0].detach().cpu().numpy()
             # print(predicted_parameters)
             synth.close()
             synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
             synth.setParameters(['frequency'], [pred_frequency])
-            synth.setParameters(['gain'], [float(np.clip(pred_rms*10, 0, 1))])
-            synth.setParameters(envelope_param_names, [0.1, 0.1, 0.5, 0.1])
-            # synth.setParameters(timbre_param_names, [0.1, 0.1])
-            # synth.setParameters(['frequency'], [np.random.rand() * 11000 + 50])
-            # synth.setParameters(['gain'], [np.random.rand()])
-            synth.setParameters(timbre_param_names, predicted_parameters.tolist())
-            sound_segment = synth.forward(pred_duration / sr) # add possibility of 'note off' to handle different durations synth.forward(duration)
+            synth.setParameters(['gain'], [float(np.clip(pred_rms*5, 0, 1))])
+            synth.setParameters(envelope_param_names, [0.3, 0.3, 0.2, 0.1])
+            synth.setParameters(timbre_param_names, [0.1, 0.1])
+            # synth.setParameters(timbre_param_names, predicted_parameters.tolist())
+            sound_segment = synth.forward((pred_duration - pred_duration/4) / sr) # add possibility of 'note off' to handle different durations synth.forward(duration)
             sound_segment = sound_segment[:pred_duration]
         end_lookup_time = time.time()
+        # print(y_pred)
 
         # update model inputs at time of end of last predicted token
         tgt_past_events.append(y_pred)
@@ -269,12 +283,15 @@ if __name__ == '__main__':
         if pred_signal_sample + int(pred_duration) < src_signal.shape[0]:
             start_sequpdate_time = time.time()
             # compute concatenative synthesis
-            crown_window = makeCrownWindow(int(pred_duration), fade_perc=0.01)
+            crown_window = makeCrownWindow(int(sound_segment.shape[0]), fade_perc=0.01)
             pred_signal[int(pred_signal_sample):int(pred_signal_sample)+int(pred_duration)] = sound_segment * crown_window
+            # pred_signal[int(pred_signal_sample):int(pred_signal_sample)+int(pred_duration)] += sound_segment * crown_window
             pred_signal_sample += int(pred_duration)
 
-            # get source events in window before current
+            # COMPUTE NEXT WINDOW START
             window_start_idx = (pred_signal_sample - PRED_TIME_SAMPLES) - WINDOW_N_SAMPLES
+
+            # get source events in window before current
             indices = np.where((times_src >= window_start_idx) & (times_src < pred_signal_sample))
             # add time difference index
             x_src_window_times = (pred_signal_sample - PRED_TIME_SAMPLES) - times_src[indices]

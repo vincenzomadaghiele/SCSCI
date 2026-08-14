@@ -74,10 +74,10 @@ if __name__ == '__main__':
     model.eval()
 
     # LOAD AUDIO TRACK
-    corpus_name = 'moisesdb-BassDrums'
-    song_name = '07fb2df2-91d6-458d-9230-9638b4edac08'
-    src_track_name = 'bass'
-    tgt_track_name = 'drums'
+    corpus_name = 'guitar-duo'
+    song_name = 'recording2'
+    src_track_name = 'guitar1'
+    tgt_track_name = 'guitar2'
     filepath = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}.wav'
     signal, _ = librosa.load(filepath, sr=sr, mono=True)
     events = extractEvents(signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
