@@ -36,7 +36,7 @@ if __name__ == '__main__':
     corpus_name = 'guitar-duo'
     src_track_name = 'guitar1'
     SYNTH_NAME = 'TimbreTheremin'
-    transformer_name = '1786722569-transformerDiscreteT2V'
+    transformer_name = '1786724890-transformerDiscreteT2V'
     song_name = 'recording2'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
@@ -239,15 +239,15 @@ if __name__ == '__main__':
                       src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0]).detach().cpu().numpy()
         end_model_time = time.time()
         # y_denorm = tgt_scaler.inverse_transform(y.reshape(y.shape[0], y.shape[2]))
-        print(y.reshape(-1))
         y_pred = tgt_scaler.inverse_transform(y.reshape(1, -1)).reshape(-1)
         # y_pred = y_denorm[-1,:]
+        print(y.reshape(-1), y_pred)
         # print(f'{pred_signal_sample}: {next_token}')
         N_latents_tgt = 0
         # pred_latents = y_pred[:N_latents_tgt]
         pred_rms = y_pred[N_latents_tgt]
         pred_frequency = y_pred[N_latents_tgt+1]
-        pred_duration = int(y_pred[N_latents_tgt+2])
+        pred_duration = int(np.clip(y_pred[N_latents_tgt+2], 882, 88200))
 
         # retreive sound segment
         start_lookup_time = time.time()
@@ -256,7 +256,9 @@ if __name__ == '__main__':
         # detect rest
         if pred_rms < 0.0001:
             sound_segment = np.zeros(pred_duration)
-            y_pred = np.zeros_like(y_pred)
+            y_pred[N_latents_tgt] = 0
+            y_pred[N_latents_tgt+1] = 0
+            # y_pred = np.zeros_like(y_pred)
         else:
             # next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
             # with torch.no_grad():

@@ -53,7 +53,7 @@ if __name__ == "__main__":
     VAE_model.eval()
 
     # LOAD FLOW MODEL
-    SYNTH_NAME = 'Theremin'
+    SYNTH_NAME = 'TimbreTheremin'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=device).to(device)
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     impulse = Impulse(frequency=0)
     graph.play([audio_in*4, impulse]) 
 
-    if SYNTH_NAME == 'Theremin':
+    if SYNTH_NAME == 'TimbreTheremin':
         synth = ADSRTheremin() 
     synth.play()
     param_names = list(synth.inputs.keys())

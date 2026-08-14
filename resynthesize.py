@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
     # LOAD AUDIO TRACK
     corpus_name = 'guitar-duo'
-    song_name = 'recording2'
+    song_name = 'recording5'
     src_track_name = 'guitar1'
     tgt_track_name = 'guitar2'
     filepath = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}.wav'
@@ -149,8 +149,8 @@ if __name__ == '__main__':
             synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
             synth.setParameters(timbre_param_names, predicted_parameters)
             synth.setParameters([frequency_param_name], [pitch])
-            synth.setParameters([gain_param_name], [float(np.clip(rms*50, 0, 1))])
-            synth.setParameters(envelope_param_names, [0.5, 0.5, 0.5, 0.5])
+            synth.setParameters([gain_param_name], [float(np.clip(rms*5, 0, 1))])
+            synth.setParameters(envelope_param_names, [0.3, 0.3, 0.2, 0.1])
             synthesized_event = synth.forward(duration / sr) 
             synth.close()
             if synthesized_event.shape[0] > event['event_duration']:

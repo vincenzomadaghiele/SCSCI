@@ -42,6 +42,29 @@ if __name__ == '__main__':
     VAE_model.eval()
 
 
+    # save models by synth
+    from synth.synths import Synth
+    import soundfile as sf
+    import matplotlib.pyplot as plt
+    from resynthesize import makeCrownWindow
+
+    SYNTH_NAME = 'TimbreTheremin'
+    num_MELS, melspec_size = 64, 80
+    RECORDING_TIME = int(melspec_size * FFT_window / sr)
+    synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
+    param_names = synth.getInputs()
+
+    # THESE ARE THE SAME FOR ALL SYNTHS
+    frequency_param_name = "frequency"
+    gain_param_name = "gain"
+    gate_param_name = "gate"
+    envelope_param_names = ['A','D','S','R']
+    # THESE CAN CHANGE AMONG SYNTHS
+    non_timbre_params_names = [frequency_param_name, gain_param_name, gate_param_name]
+    non_timbre_params_names += envelope_param_names
+    timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
+
+
     # LOAD FLOW MODEL
     SYNTH_NAME = 'TimbreTheremin'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
@@ -101,6 +124,14 @@ if __name__ == '__main__':
     transform = transforms.Compose(tr)
     tgt_events = []
     for song in tgt_corpus_files:
+
+        song_name = song.split('/')[-3]
+        print(song_name)
+        signal, _ = librosa.load(f"{corpus_path}/{song_name}/{tgt_track_name}.wav", sr=sr, mono=True)
+        original_reconstruct = np.zeros_like(signal)
+        resynthesized_reconstruct = np.zeros_like(signal)
+
+        # 
         event_sequence = np.load(song, allow_pickle=True)
         for event in event_sequence:
             # detect rest
@@ -115,6 +146,47 @@ if __name__ == '__main__':
             event_latents.append(event['event_start'])
             event_latents.append(song)
             tgt_events.append(event_latents)
+
+            # RESYNTHESIZE
+            # for event in tgt_events:
+            if event['rms'] != 0:
+                z_tilde, predicted_parameters = melToFlowLatents(event['mel'], flow_model, mean, var)
+                synth.close()
+                synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
+                synth.setParameters(timbre_param_names, predicted_parameters.tolist())
+                synth.setParameters([frequency_param_name], [event['pitch']])
+                synth.setParameters([gain_param_name], [float(np.clip(event['rms']*5, 0, 1))])
+                synth.setParameters(envelope_param_names, [0.3, 0.3, 0.2, 0.1])
+                synthesized_event = synth.forward(int(event['event_duration'] - (event['event_duration']/2)) / sr) 
+                if synthesized_event.shape[0] > event['event_duration']:
+                    event['resynthesized'] = synthesized_event[:event['event_duration']]
+                else:
+                    newevent = np.zeros(event['event_duration'])
+                    newevent[:synthesized_event.shape[0]] = synthesized_event
+                    event['resynthesized'] = newevent
+                # RECOMBINE INTO FILE WITH EVENT STARTS
+                original_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = signal[event['event_start']:event['event_start']+event['event_duration']]
+                resynthesized_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = event['resynthesized'] * makeCrownWindow(event['event_duration'])
+
+            # # SAVE AUDIOFILE
+            SAVE_FILEPATH = f'./corpus/{corpus_name}/{song_name}/resynthesized'
+            os.makedirs(SAVE_FILEPATH, exist_ok=True)
+            sf.write(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.wav', resynthesized_reconstruct, sr, subtype='PCM_24')
+
+            # MAKE DUAL FIGURE
+            fig, ax = plt.subplots(2, figsize=(16, 6))
+            librosa.display.waveshow(y=original_reconstruct, sr=sr, color="black", axis='time', ax=ax[0], alpha=0.2)
+            librosa.display.waveshow(y=resynthesized_reconstruct, sr=sr, color="black", axis='time', ax=ax[1], alpha=0.2)
+            ax[0].set_title('original')
+            ax[1].set_title('resynthesized')
+            ax[0].set_xticks([])
+            ax[0].set_xlabel('')
+            ax[1].set_xlabel('time')
+            ax[0].set_ylim([-1,1])
+            ax[1].set_ylim([-1,1])
+            fig.savefig(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.png')
+            plt.close(fig)
+
     tgt_events = np.array(tgt_events)
     print(tgt_events.shape)
     columns = [f'latent-{j}' for j in range(N_latents_tgt)]
@@ -126,4 +198,3 @@ if __name__ == '__main__':
     df_tgt = pd.DataFrame(tgt_events, columns=columns)
     print(df_tgt.head())
     df_tgt.to_csv(f"{corpus_path}/tgt_events.csv")
-

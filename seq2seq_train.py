@@ -107,7 +107,7 @@ if __name__ == '__main__':
     training_parameters['sound_corpus_path'] = corpus_path
     training_parameters['source_track_name'] = src_track_name
     training_parameters['target_track_name'] = tgt_track_name
-    training_parameters['batch_size'] = 32
+    training_parameters['batch_size'] = 64
     training_parameters['num_frequency'] = 8
     training_parameters['dataset_training_percentage'] = 0.8
     training_parameters['dataset_validation_percentage'] = 0.1
@@ -115,9 +115,9 @@ if __name__ == '__main__':
     training_parameters['num_heads'] = 8
     training_parameters['num_encoder_layers'] = 8
     training_parameters['num_decoder_layers'] = 8
-    training_parameters['dim_feedforward'] = 512
+    training_parameters['dim_feedforward'] = 1024
     training_parameters['dropout_p'] = 0.3
-    training_parameters['window_size_s'] = 8
+    training_parameters['window_size_s'] = 12
     training_parameters['pred_time_s'] = 0
     training_parameters['pad_token'] = -1000
     training_parameters['loss_fn'] = 'MSE'
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     durationTranspose = True
     maskAugment = False
     randomSubstitute = True
-    NUM_AUGMENT = 8
+    NUM_AUGMENT = 10
     rmsIndexSrc = features_source.index("rms")
     rmsIndexTgt = features_source.index("rms")
     pitchIndexSrc = features_source.index("pitch")
@@ -259,7 +259,7 @@ if __name__ == '__main__':
                     # new_data.append([x_src, x_tgt, y_tgt])
                 if pitchTranspose:
                     # transpose pitch by max 10 %
-                    PITCH_TRANSP = 0.3
+                    PITCH_TRANSP = 0.5
                     coefficient = PITCH_TRANSP * (np.random.rand() * 2 -1)
                     x_src[:,pitchIndexSrc] = x_src[:,pitchIndexSrc] + x_src[:,pitchIndexSrc] * coefficient
                     x_tgt[:,pitchIndexTgt] = x_tgt[:,pitchIndexTgt] + x_tgt[:,pitchIndexTgt] * coefficient
@@ -267,7 +267,7 @@ if __name__ == '__main__':
                     # new_data.append([x_src, x_tgt, datum[2]])
                 if durationTranspose:
                     # increase or decrease durations by max 10 %
-                    DUR_TRANSP = 0.3
+                    DUR_TRANSP = 0.2
                     coefficient = DUR_TRANSP * (np.random.rand() * 2 -1)
                     x_src[:,durationIndexSrc] = x_src[:,durationIndexSrc] + x_src[:,durationIndexSrc] * coefficient
                     x_tgt[:,durationIndexTgt] = x_tgt[:,durationIndexTgt] + x_tgt[:,durationIndexTgt] * coefficient
@@ -280,7 +280,7 @@ if __name__ == '__main__':
                         x_tgt[random.randint(0, tgt_len-1), :-1] = MASK_TOKEN
                 if randomSubstitute:
                     src_len, tgt_len = x_src.shape[0]-1, x_tgt.shape[0]-1
-                    if np.random.rand() > 0.9:
+                    if np.random.rand() > 0.8:
                         x_src[random.randint(0, src_len), :-1] = x_src[random.randint(0, src_len), :-1]
                         x_tgt[random.randint(0, tgt_len), :-1] = x_tgt[random.randint(0, tgt_len), :-1]
                 new_data.append([x_src, x_tgt, y_tgt])
