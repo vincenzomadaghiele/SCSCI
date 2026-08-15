@@ -218,6 +218,8 @@ if __name__ == "__main__":
     tgt_past_events = []
     tgt_past_events_starttimes = []
 
+    SAVE_INTERVAL = 50
+    ii = 0
     while True:
         signal = input_buffer.data[0,:]
         # print(signal.shape)
@@ -468,8 +470,9 @@ if __name__ == "__main__":
             tgt_samples_left -= hop_size 
 
 
-
-
+        if ii == SAVE_INTERVAL:
+            # save files
+            ii = 0
 
 
         time.sleep(update_interval_s)
