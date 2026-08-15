@@ -56,10 +56,6 @@ if __name__ == '__main__':
     VAE_model.load_state_dict(torch.load(VAE_model_name, weights_only=True))
     VAE_model.eval()
 
-    # onsetDetector = OnsetDetection(sr=sr)
-    # onsets_samples = onsetDetector(src_signal.reshape(1,-1))
-    # print(onsets_samples)
-
     src_signal = adjustAmplitude(src_signal, FFT_window, hop_size)
     onsets_samples = detectOnsets(src_signal, sr, min_event_duration_samples=min_event_duration_samples)
     print(onsets_samples)
@@ -71,79 +67,6 @@ if __name__ == '__main__':
     #     ax.axvline(onsets_samples[i] / sr,-1,1, color='red', ls='--')
     # plt.show()
     # plt.close(fig)
-
-
-    # src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
-    # src_signal = src_signal.reshape(-1)
-    # event_samples = np.zeros(hop_size)
-    # tot_duration = src_signal.shape[0]
-    # events = []
-    # for i in range(FFT_window, tot_duration, hop_size):
-    #     signal = src_signal[i-FFT_window:i] # get window
-    #     event_samples = np.concatenate((event_samples, signal[-hop_size:])) # add new part to latest event
-    #     event_samples = adjustAmplitude(event_samples, FFT_window, hop_size) # adjust amplitude
-    #     onsets_samples = detectOnsets(event_samples, sr, min_event_duration_samples=min_event_duration_samples) # look for onsets in whole event
-
-    #     previous_onset = 0
-    #     for j in range(len(onsets_samples)-1):
-    #         event = event_samples[previous_onset:onsets_samples[j]]
-    #         # check for rest
-    #         rms = librosa.feature.rms(y=event, frame_length=FFT_window, hop_length=hop_size)[0]
-    #         if any(r > silence_threshold for r in rms.tolist()):
-    #             end_event_frame = -1
-    #             for k, rms_value in enumerate(rms.tolist()):
-    #                 if rms_value > silence_threshold:
-    #                     end_event_frame = k
-    #                     break
-    #             if end_event_frame != -1: 
-    #                 end_event_sample = librosa.frames_to_samples(end_event_frame, hop_length=hop_size)
-    #                 # rest was found
-    #                 note_event = event[:end_event_sample]
-    #                 rest_event = np.zeros(event[end_event_sample:].shape[0])
-    #                 events.append(note_event) # append note event
-    #                 events.append(rest_event) # append rest because there is another onset afterwards
-    #             else:
-    #                 events.append(event)
-    #         else:
-    #             events.append(np.zeros(event.shape[0]))
-    #         previous_onset = onsets_samples[j]
-
-    #     if len(onsets_samples) > 0:
-    #         event = event_samples[previous_onset:onsets_samples[-1]]
-    #         # check for rest
-    #         rms = librosa.feature.rms(y=event, frame_length=FFT_window, hop_length=hop_size)[0]
-    #         end_event_frame = -1
-    #         for k, rms_value in enumerate(rms.tolist()):
-    #             if rms_value > silence_threshold:
-    #                 end_event_frame = k
-    #                 break
-    #         if end_event_frame != -1: 
-    #             end_event_sample = librosa.frames_to_samples(end_event_frame, hop_length=hop_size)
-    #             # last unfinished event will be the rest
-    #             note_event = event[:end_event_sample]
-    #             events.append(note_event) 
-    #             event_samples = np.zeros(event[end_event_sample:].shape[0])
-    #         else:
-    #             # last unfinished event will be the note
-    #             event_samples = event[onsets_samples[-1]:]
-    #     else:
-    #         # there are no onsets: are we in a rest or the sustain of a previous event?
-    #         rms = librosa.feature.rms(y=event_samples, frame_length=FFT_window, hop_length=hop_size)[0]
-    #         if all(r < silence_threshold for r in rms.tolist()):
-    #             # we are in a rest
-    #             event_samples[-hop_size:] = np.zeros(hop_size)
-
-    #     # check if max duration reached
-    #     if event_samples.shape[0] > max_event_duration_samples:
-    #         events.append(event_samples[:max_event_duration_samples]) 
-    #         event_samples = event_samples[max_event_duration_samples:]
-
-    # for event in events:
-    #     fig, ax = plt.subplots(1, figsize=(6, 3))
-    #     ax.plot(event)
-    #     ax.set_ylim([-1,1])
-    #     plt.show()
-    #     plt.close(fig)
 
     def detectRest(event):
         rms = librosa.feature.rms(y=event, frame_length=FFT_window, hop_length=hop_size)[0]
@@ -194,15 +117,15 @@ if __name__ == '__main__':
 
     src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
     src_signal = src_signal.reshape(-1)
-    found_onsets_general = []
     tot_duration = src_signal.shape[0]
-    prev_onset_position = 0
-    inEvent = False # if window starts in event or in rest
+    
     event_samples = np.zeros(hop_size)
     tot_events = []
     tot_features = []
     tot_event_start_samples = []
+    found_onsets_general = []
     start_event_sample = 0
+    prev_onset_position = 0
     for i in range(FFT_window, tot_duration, hop_size):
         signal = src_signal[i-FFT_window:i]
         rms = librosa.feature.rms(y=signal, frame_length=FFT_window, hop_length=hop_size)[0]
