@@ -148,6 +148,9 @@ if __name__ == '__main__':
             # RESYNTHESIZE
             # for event in tgt_events:
             if event['rms'] != 0:
+                # find min max latents of flow model (from training data)
+                # find min max of resynthesized latents
+                # rescale resynthezied latents and generate sound from scaled latents params
                 z_tilde, predicted_parameters = melToFlowLatents(event['mel'], flow_model, mean, var)
                 synth.close()
                 synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
