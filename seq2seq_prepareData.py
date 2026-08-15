@@ -3,6 +3,8 @@ import json
 import librosa
 import numpy as np
 import pandas as pd
+import soundfile as sf
+import matplotlib.pyplot as plt
 
 import torch
 from torchvision import transforms
@@ -11,7 +13,8 @@ from utils.transforms import LogTransform, NormalizeTensor
 from CONSTANTS import * 
 from VAE_train import Encoder, Decoder, Model
 
-from resynthesize import melToVAElatents, melToFlowLatents
+from synth.synths import Synth
+from resynthesize import melToVAElatents, melToFlowLatents, makeCrownWindow
 
 if __name__ == '__main__': 
 
@@ -42,11 +45,6 @@ if __name__ == '__main__':
     VAE_model.eval()
 
 
-    # save models by synth
-    from synth.synths import Synth
-    import soundfile as sf
-    import matplotlib.pyplot as plt
-    from resynthesize import makeCrownWindow
 
     SYNTH_NAME = 'TimbreTheremin'
     num_MELS, melspec_size = 64, 80

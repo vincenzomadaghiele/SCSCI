@@ -36,8 +36,8 @@ if __name__ == '__main__':
     corpus_name = 'guitar-duo'
     src_track_name = 'guitar1'
     SYNTH_NAME = 'TimbreTheremin'
-    transformer_name = '1786724890-transformerDiscreteT2V'
-    song_name = 'recording2'
+    transformer_name = '1786739157-transformerDiscreteT2V'
+    song_name = 'recording3'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
@@ -241,13 +241,18 @@ if __name__ == '__main__':
         # y_denorm = tgt_scaler.inverse_transform(y.reshape(y.shape[0], y.shape[2]))
         y_pred = tgt_scaler.inverse_transform(y.reshape(1, -1)).reshape(-1)
         # y_pred = y_denorm[-1,:]
-        print(y.reshape(-1), y_pred)
         # print(f'{pred_signal_sample}: {next_token}')
         N_latents_tgt = 0
         # pred_latents = y_pred[:N_latents_tgt]
         pred_rms = y_pred[N_latents_tgt]
-        pred_frequency = y_pred[N_latents_tgt+1]
+        pred_frequency = np.clip(y_pred[N_latents_tgt+1], 50, 11050)
         pred_duration = int(np.clip(y_pred[N_latents_tgt+2], 882, 88200))
+
+        y_pred[N_latents_tgt] = pred_rms
+        y_pred[N_latents_tgt+1] = pred_frequency
+        y_pred[N_latents_tgt+2] = pred_duration
+        
+        print(y.reshape(-1), y_pred)
 
         # retreive sound segment
         start_lookup_time = time.time()
@@ -361,3 +366,10 @@ if __name__ == '__main__':
         ax[0].set_ylim([-1,1])
         ax[1].set_ylim([-1,1])
         fig.savefig(f'{results_dir}/{song_name}_{SYNTH_NAME}_synthesized.png')
+        plt.close(fig)
+
+
+    df_tgt = pd.DataFrame(tgt_past_events, columns=features_target)
+    df_tgt["event_start"] = tgt_past_events_starttimes
+    print(df_tgt.head())
+    df_tgt.to_csv(f"{results_dir}/{song_name}_{SYNTH_NAME}_tgt_events.csv")
