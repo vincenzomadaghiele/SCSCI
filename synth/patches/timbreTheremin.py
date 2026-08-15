@@ -80,6 +80,7 @@ if __name__ == "__main__":
         voice.set_input("gate", 1)
         # voice.trigger()
         voice.auto_free = True
+        # panner = StereoPanner( voice , pan=float(np.random.rand()))
         voice.play()
         voices[j] = voice
         durations[j] = random.random() * MAX_DURATION
