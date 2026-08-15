@@ -7,15 +7,25 @@ import numpy as np
 import pandas as pd
 import soundfile as sf
 import matplotlib.pyplot as plt
+from resynthesize import melToVAElatents, melToFlowLatents
 
 import torch
 from torchvision import transforms
 
 from CONSTANTS import * 
-from corpus.extract_events import extractEvents, plotEvents, plotPairedEvents, detectOnsets, adjustAmplitude
+from corpus.extract_events import extractEvents, plotEvents, plotPairedEvents, detectOnsets
 from VAE_train import Encoder, Decoder, Model
 
 from corpus.onset_detect import OnsetDetection
+
+def adjustAmplitude(signal, FFT_window_size, hop_size, signal_max=None):
+    rms = librosa.feature.rms(y=signal, frame_length=FFT_window_size, hop_length=hop_size)
+    if rms.max() < 0.7: # normalize amplitude
+        if signal_max:
+            signal *= 0.6/signal_max
+        else:
+            signal *= 0.6/signal.max()
+    return signal
 
 
 if __name__ == '__main__': 
@@ -53,6 +63,7 @@ if __name__ == '__main__':
     src_signal = adjustAmplitude(src_signal, FFT_window, hop_size)
     onsets_samples = detectOnsets(src_signal, sr, min_event_duration_samples=min_event_duration_samples)
     print(onsets_samples)
+    signal_max = src_signal.max()
 
     # fig, ax = plt.subplots(1, figsize=(8, 3))
     # librosa.display.waveshow(y=src_signal, sr=sr, color="black", axis='time', ax=ax, alpha=0.2)
@@ -142,11 +153,44 @@ if __name__ == '__main__':
                 end_event_frame = k
                 break
         if end_event_frame != -1: 
-            # there is a rest in event before 
             end_event_sample = librosa.frames_to_samples(end_event_frame, hop_length=hop_size)
             return [event[:end_event_sample], event[end_event_sample:]]
         else:
             return [event]
+
+    timbre_pitch = True
+    def extractEventFeats(signal):
+        # compute features of event
+        rms = librosa.feature.rms(y=signal, frame_length=FFT_window, hop_length=hop_size)
+        pitch = librosa.yin(signal, fmin=50, fmax=11000, sr=sr, frame_length=FFT_window, hop_length=hop_size)
+        event_duration = signal.shape[0]
+        if timbre_pitch:
+            # transpose to base freq for mel computation
+            BASE_FREQ = 220
+            base_pitch = librosa.hz_to_midi(BASE_FREQ)
+            this_pitch = librosa.hz_to_midi(pitch.mean())
+            signal = librosa.effects.pitch_shift(signal, sr=sr, n_steps=this_pitch-base_pitch)
+        mel = librosa.feature.melspectrogram(y=signal, sr=sr, n_fft=FFT_window, n_mels=num_MEL, hop_length=hop_size, fmin=50, fmax=11000)
+        mel = mel[:num_MEL, :melspec_size_flow]
+        event_latents = melToVAElatents(mel, VAE_model)
+        event_latents = event_latents.tolist()
+        event_latents = [] # remove this if using latents
+        event_latents.append(rms.mean()) 
+        event_latents.append(pitch.mean()) 
+        event_latents.append(np.clip(event_duration, 882, 88200)) 
+        features = np.array(event_latents)
+        print(f'rms: {rms.mean():.3f}, pitch: {pitch.mean():.3f}, duration: {event_duration / sr:.3f}')
+        return features
+
+    def makeRest(signal):
+        event_duration = signal.shape[0]
+        event_latents = np.zeros(latent_dim).tolist()
+        event_latents.append(0) 
+        event_latents.append(0) 
+        event_latents.append(np.clip(event_duration, 882, 88200)) 
+        features = np.array(event_latents)
+        return features
+
 
     src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
     src_signal = src_signal.reshape(-1)
@@ -156,9 +200,15 @@ if __name__ == '__main__':
     inEvent = False # if window starts in event or in rest
     event_samples = np.zeros(hop_size)
     tot_events = []
+    tot_features = []
+    tot_event_start_samples = []
     for i in range(FFT_window, tot_duration, hop_size):
         signal = src_signal[i-FFT_window:i]
-        signal = adjustAmplitude(signal, FFT_window, hop_size)
+        rms = librosa.feature.rms(y=signal, frame_length=FFT_window, hop_length=hop_size)[0]
+        if rms.mean() > silence_threshold / 2:
+            signal = adjustAmplitude(signal, FFT_window, hop_size)
+        else: 
+            signal = np.zeros_like(signal)
         onsets_samples = detectOnsets(signal, sr, min_event_duration_samples=min_event_duration_samples)
 
         # check if onset already found in previous windows
@@ -184,40 +234,45 @@ if __name__ == '__main__':
             if len(event_with_rest) == 2:
                 if event_with_rest[0].shape[0] == 0:
                     # (1.1) end of a rest
-                    print(f'rest duration: {event_with_rest[1].shape[0]}')
+                    # print(f'rest duration: {event_with_rest[1].shape[0]}')
                     tot_events.append(event_with_rest[1])
+                    tot_features.append(makeRest(event_with_rest[1]))
                 else:
                     # (1.2) end of previous event + rest
-                    print(f'event duration: {event_with_rest[0].shape[0]}')
+                    # print(f'event duration: {event_with_rest[0].shape[0]}')
                     tot_events.append(event_with_rest[0])
-                    print(f'rest duration: {event_with_rest[1].shape[0]}')
+                    tot_features.append(extractEventFeats(event_with_rest[0]))
+                    # print(f'rest duration: {event_with_rest[1].shape[0]}')
                     tot_events.append(event_with_rest[1])
+                    tot_features.append(makeRest(event_with_rest[1]))
             else:
                 # (1.3) end of previous event coincides with new onset (no rest)
-                print(f'event duration: {event_with_rest[0].shape[0]}')
+                # print(f'event duration: {event_with_rest[0].shape[0]}')
                 tot_events.append(event_with_rest[0])
+                tot_features.append(extractEventFeats(event_with_rest[0]))
             
             # (2) AFTER THE ONSET
             event = event_samples[newOnsets[0]-FFT_window:]
             event_with_rest = detectRest(event)
             if len(event_with_rest) == 2:
                 # (2.1) event + rest that keeps going into next window
-                print(f'event duration: {event_with_rest[0].shape[0]}')
+                # print(f'event duration: {event_with_rest[0].shape[0]}')
                 tot_events.append(event_with_rest[0])
+                tot_features.append(extractEventFeats(event_with_rest[0]))
                 # event_samples = event_with_rest[1]
                 event_samples = np.zeros_like(event_with_rest[1])
             else:
                 # (2.2) event keeps going into next window
                 event_samples = event_with_rest[0]
-
         else:
             # (3) NO ONSET
             event_with_rest = detectRest(event_samples)
             if len(event_with_rest) == 2:
                 # (3.1) event + rest that keeps going into next window
                 if event_with_rest[0].shape[0] > 0:
-                    print(f'event duration: {event_with_rest[0].shape[0]}')
+                    # print(f'event duration: {event_with_rest[0].shape[0]}')
                     tot_events.append(event_with_rest[0])
+                    tot_features.append(extractEventFeats(event_with_rest[0]))
                     # event_samples = event_with_rest[1]
                     event_samples = np.zeros_like(event_with_rest[1])
                 else:
@@ -225,7 +280,8 @@ if __name__ == '__main__':
                     if event_samples.shape[0] > max_event_duration_samples:
                         # (3.2) rest too long: cut and next keeps going into next window
                         tot_events.append(event_samples[:max_event_duration_samples - event_samples.shape[0]])
-                        print(f'rest duration: {event_samples[:max_event_duration_samples - event_samples.shape[0]].shape[0]}')
+                        tot_features.append(makeRest(event_samples[:max_event_duration_samples - event_samples.shape[0]]))
+                        # print(f'rest duration: {event_samples[:max_event_duration_samples - event_samples.shape[0]].shape[0]}')
                         # event_samples = event_samples[max_event_duration_samples - event_samples.shape[0]:]
                         event_samples = np.zeros_like(event_samples[max_event_duration_samples - event_samples.shape[0]:])
                     else:
@@ -237,87 +293,12 @@ if __name__ == '__main__':
                 if event_samples.shape[0] > max_event_duration_samples:
                     # (3.4) event too long: cut and next keeps going into next window
                     tot_events.append(event_samples[:max_event_duration_samples - event_samples.shape[0]])
-                    print(f'event duration: {event_samples[:max_event_duration_samples - event_samples.shape[0]].shape[0]}')
+                    tot_features.append(extractEventFeats(event_samples[:max_event_duration_samples - event_samples.shape[0]]))
+                    # print(f'event duration: {event_samples[:max_event_duration_samples - event_samples.shape[0]].shape[0]}')
                     event_samples = event_samples[max_event_duration_samples - event_samples.shape[0]:]
                 else:
                     # (3.5) event previous that keeps going into next window
                     pass
-
-
-
-
-        # rms = librosa.feature.rms(y=event_samples, frame_length=FFT_window, hop_length=hop_size)[0]
-        # # pitch = librosa.yin(event_samples, fmin=50, fmax=11000, sr=sr, frame_length=FFT_window, hop_length=hop_size)
-
-        # previous_onset = 0
-        # newOnsets = [0] + newOnsets + [event_samples.shape[0]]
-        # newRestOnsets = []
-        # for k in range(len(newOnsets)-1):
-        #     latest_event = event_samples[newOnsets[k]:newOnsets[k+1]]
-
-        #     # check for rests
-        #     this_rms = rms[librosa.samples_to_frames(newOnsets[k], hop_length=hop_size):librosa.samples_to_frames(newOnsets[k+1], hop_length=hop_size)]
-        #     end_event_frame = -1
-        #     for k in range(this_rms.shape[0]):
-        #         if this_rms[k] < silence_threshold:
-        #             end_event_frame = k
-        #             break
-        #     if end_event_frame != -1: 
-        #         # last unfinished event will be the rest
-        #         newRestOnsets.append(librosa.frames_to_samples(end_event_frame, hop_length=hop_size))
-
-        # if newOnsets[1:-1]: 
-        #     print(newOnsets[1:-1], newRestOnsets)
-
-        # previous_onset = 0
-        # for k in range(len(newOnsets)):
-        #     if k == 0:
-        #         # first event
-        #         if inEvent:
-        #             # append previous event to sequence
-        #             latest_event = event_samples[:newOnsets[k]]
-        #             # check for rest at the end of new event
-        #             this_rms = rms[:librosa.samples_to_frames(newOnsets[k], hop_length=hop_size)]
-        #             end_event_frame = -1
-        #             for k, rms_value in enumerate(rms.tolist()):
-        #                 if rms_value > silence_threshold:
-        #                     end_event_frame = k
-        #                     break
-        #             if end_event_frame != -1: 
-        #                 # last unfinished event will be the rest
-        #                 note_event = latest_event[:librosa.frames_to_samples(end_event_frame, hop_length=hop_size)]
-        #             # analyze and process
-        #             previous_onset = newOnsets[k]
-        #             pass
-        #         else:
-        #             # append rest event to sequence
-        #             pass
-        #     elif k == len(newOnsets)-1:
-        #         # last event
-        #         # check for rest 
-        #         event_samples = event_samples[newOnsets[k]:]
-        #         pass
-        #     else:
-        #         latest_event = event_samples[previous_onset:newOnsets[k]]
-        #         # other onsets
-        #         # append previous event to sequence
-        #         # check for rest at the end of new event
-        #         previous_onset = newOnsets[k]
-        #         pass
-
-        # print(i - FFT_window + onset)
-        # fig, ax = plt.subplots(1, figsize=(6, 3))
-        # ax.plot(signal)
-        # ax.axvline(onset,-1,1, color='red', ls='--')
-        # ax.set_ylim([-1,1])
-        # plt.show()
-        # plt.close(fig)
-
-        if not newOnsets:
-            # if no onset is found --> check for end of event by maximum duration and append silence if ended
-            event_samples = np.concatenate((event_samples, signal[-hop_size:].reshape(-1)))
-
-        # onsets_samples = onsetDetector(signal.reshape(1,-1))
 
 
     # for event in tot_events:
@@ -326,7 +307,6 @@ if __name__ == '__main__':
     #     ax.set_ylim([-1,1])
     #     plt.show()
     #     plt.close(fig)
-
 
     print(found_onsets_general)
     onsets_samples = found_onsets_general
