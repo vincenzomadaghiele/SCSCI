@@ -425,12 +425,5 @@ if __name__ == '__main__':
     with open(f'{logdir}/evaluation.json', 'w', encoding='utf-8') as f:
         json.dump(evaluation_metrics, f, ensure_ascii=False, indent=4)
 
-    # GENERATE OUTPUTS
 
-    # GET SOURCE AUDIOFILE
-    # EXTRACT EVENTS
-    # ENCODE SOURCE LATENTS
-    # PREPARE DATA SEQUENCE
-    # LOAD SEQ2SEQ TRAINED MODEL
-    # GENERATE SOUND RESPONSES
-    # SAVE AUDIOFILE
+    # generate coimpros offline

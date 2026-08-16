@@ -273,41 +273,38 @@ if __name__ == "__main__":
                             if event_to_save.shape[0] > 0:
                                 # tot_events.append(event_to_save)
                                 # tot_features.append(makeRest(event_to_save))
-                                start_event_sample += event_to_save.shape[0]
                                 # tot_event_start_samples.append(start_event_sample)
                                 src_past_events.append(makeRest(event_to_save))
                                 src_past_events_starttimes.append(start_event_sample)
+                                start_event_sample += event_to_save.shape[0]
                         else:
                             # (1.2) end of previous event + rest
                             event_to_save = event_with_rest[0]
                             if event_to_save.shape[0] > 0:
                                 # tot_events.append(event_to_save)
                                 # tot_features.append(extractEventFeats(event_to_save))
-                                start_event_sample += event_to_save.shape[0]
                                 # tot_event_start_samples.append(start_event_sample)
-
                                 src_past_events.append(extractEventFeats(event_to_save))
                                 src_past_events_starttimes.append(start_event_sample)
+                                start_event_sample += event_to_save.shape[0]
                             event_to_save = event_with_rest[1]
                             if event_to_save.shape[0] > 0:
                                 # tot_events.append(event_to_save)
                                 # tot_features.append(makeRest(event_to_save))
-                                start_event_sample += event_to_save.shape[0]
                                 # tot_event_start_samples.append(start_event_sample)
-
                                 src_past_events.append(makeRest(event_to_save))
                                 src_past_events_starttimes.append(start_event_sample)
+                                start_event_sample += event_to_save.shape[0]
                     else:
                         # (1.3) end of previous event coincides with new onset (no rest)
                         event_to_save = event_with_rest[0]
                         if event_to_save.shape[0] > 0:
                             # tot_events.append(event_to_save)
                             # tot_features.append(extractEventFeats(event_to_save))
-                            start_event_sample += event_to_save.shape[0]
                             # tot_event_start_samples.append(start_event_sample)
-
                             src_past_events.append(extractEventFeats(event_to_save))
                             src_past_events_starttimes.append(start_event_sample)
+                            start_event_sample += event_to_save.shape[0]
 
                     # (2) AFTER THE ONSET
                     event = event_samples[newOnsets[0]-FFT_window:]
@@ -318,11 +315,10 @@ if __name__ == "__main__":
                         if event_to_save.shape[0] > 0:
                             # tot_events.append(event_to_save)
                             # tot_features.append(extractEventFeats(event_to_save))
-                            start_event_sample += event_to_save.shape[0]
                             # tot_event_start_samples.append(start_event_sample)
-
                             src_past_events.append(extractEventFeats(event_to_save))
                             src_past_events_starttimes.append(start_event_sample)
+                            start_event_sample += event_to_save.shape[0]
 
                         event_samples = np.zeros_like(event_with_rest[1])
                     else:
@@ -338,11 +334,10 @@ if __name__ == "__main__":
                             if event_to_save.shape[0] > 0:
                                 # tot_events.append(event_to_save)
                                 # tot_features.append(extractEventFeats(event_to_save))
-                                start_event_sample += event_to_save.shape[0]
                                 # tot_event_start_samples.append(start_event_sample)
-
                                 src_past_events.append(extractEventFeats(event_to_save))
                                 src_past_events_starttimes.append(start_event_sample)
+                                start_event_sample += event_to_save.shape[0]
 
                             event_samples = np.zeros_like(event_with_rest[1])
                         else:
@@ -353,11 +348,11 @@ if __name__ == "__main__":
                                 if event_to_save.shape[0] > 0:
                                     # tot_events.append(event_to_save)
                                     # tot_features.append(makeRest(event_to_save))
-                                    start_event_sample += event_to_save.shape[0]
                                     # tot_event_start_samples.append(start_event_sample)
-
                                     src_past_events.append(makeRest(event_to_save))
                                     src_past_events_starttimes.append(start_event_sample)
+                                    start_event_sample += event_to_save.shape[0]
+
                                 event_samples = np.zeros_like(event_samples[max_event_duration_samples - event_samples.shape[0]:])
                             else:
                                 # (3.3) rest previous that keeps going into next window
@@ -370,11 +365,11 @@ if __name__ == "__main__":
                             if event_to_save.shape[0] > 0:
                                 # tot_events.append(event_to_save)
                                 # tot_features.append(extractEventFeats(event_to_save))
-                                start_event_sample += event_to_save.shape[0]
                                 # tot_event_start_samples.append(start_event_sample)
-
                                 src_past_events.append(extractEventFeats(event_to_save))
                                 src_past_events_starttimes.append(start_event_sample)
+                                start_event_sample += event_to_save.shape[0]
+                                
                             event_samples = event_samples[max_event_duration_samples - event_samples.shape[0]:]
                         else:
                             # (3.5) event previous that keeps going into next window
