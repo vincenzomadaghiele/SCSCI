@@ -116,6 +116,7 @@ if __name__ == '__main__':
         return features
 
     src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
+    src_signal = adjustAmplitude(src_signal, FFT_window, hop_size)
     src_signal = src_signal.reshape(-1)
     tot_duration = src_signal.shape[0]
     
@@ -128,11 +129,11 @@ if __name__ == '__main__':
     prev_onset_position = 0
     for i in range(FFT_window, tot_duration, hop_size):
         signal = src_signal[i-FFT_window:i]
-        rms = librosa.feature.rms(y=signal, frame_length=FFT_window, hop_length=hop_size)[0]
-        if rms.mean() > silence_threshold / 2:
-            signal = adjustAmplitude(signal, FFT_window, hop_size)
-        else: 
-            signal = np.zeros_like(signal)
+        # rms = librosa.feature.rms(y=signal, frame_length=FFT_window, hop_length=hop_size)[0]
+        # if rms.mean() > silence_threshold / 2:
+        #     signal = adjustAmplitude(signal, FFT_window, hop_size)
+        # else: 
+        #     signal = np.zeros_like(signal)
         onsets_samples = detectOnsets(signal, sr, min_event_duration_samples=min_event_duration_samples)
 
         # check if onset already found in previous windows
@@ -162,30 +163,30 @@ if __name__ == '__main__':
                     if event_to_save.shape[0] > 0:
                         tot_events.append(event_to_save)
                         tot_features.append(makeRest(event_to_save))
-                        start_event_sample += event_to_save.shape[0]
                         tot_event_start_samples.append(start_event_sample)
+                        start_event_sample += event_to_save.shape[0]
                 else:
                     # (1.2) end of previous event + rest
                     event_to_save = event_with_rest[0]
                     if event_to_save.shape[0] > 0:
                         tot_events.append(event_with_rest[0])
                         tot_features.append(extractEventFeats(event_with_rest[0]))
-                        start_event_sample += event_with_rest[0].shape[0]
                         tot_event_start_samples.append(start_event_sample)
+                        start_event_sample += event_with_rest[0].shape[0]
                     event_to_save = event_with_rest[1]
                     if event_to_save.shape[0] > 0:
                         tot_events.append(event_to_save)
                         tot_features.append(makeRest(event_to_save))
-                        start_event_sample += event_to_save.shape[0]
                         tot_event_start_samples.append(start_event_sample)
+                        start_event_sample += event_to_save.shape[0]
             else:
                 # (1.3) end of previous event coincides with new onset (no rest)
                 event_to_save = event_with_rest[0]
                 if event_to_save.shape[0] > 0:
                     tot_events.append(event_to_save)
                     tot_features.append(extractEventFeats(event_to_save))
-                    start_event_sample += event_to_save.shape[0]
                     tot_event_start_samples.append(start_event_sample)
+                    start_event_sample += event_to_save.shape[0]
 
             # (2) AFTER THE ONSET
             event = event_samples[newOnsets[0]-FFT_window:]
@@ -196,8 +197,8 @@ if __name__ == '__main__':
                 if event_to_save.shape[0] > 0:
                     tot_events.append(event_to_save)
                     tot_features.append(extractEventFeats(event_to_save))
-                    start_event_sample += event_to_save.shape[0]
                     tot_event_start_samples.append(start_event_sample)
+                    start_event_sample += event_to_save.shape[0]
                 event_samples = np.zeros_like(event_with_rest[1])
             else:
                 # (2.2) event keeps going into next window
@@ -212,8 +213,8 @@ if __name__ == '__main__':
                     if event_to_save.shape[0] > 0:
                         tot_events.append(event_to_save)
                         tot_features.append(extractEventFeats(event_to_save))
-                        start_event_sample += event_to_save.shape[0]
                         tot_event_start_samples.append(start_event_sample)
+                        start_event_sample += event_to_save.shape[0]
                     event_samples = np.zeros_like(event_with_rest[1])
                 else:
                     event_samples = event_with_rest[1]
@@ -223,8 +224,8 @@ if __name__ == '__main__':
                         if event_to_save.shape[0] > 0:
                             tot_events.append(event_to_save)
                             tot_features.append(makeRest(event_to_save))
-                            start_event_sample += event_to_save.shape[0]
                             tot_event_start_samples.append(start_event_sample)
+                            start_event_sample += event_to_save.shape[0]
                         event_samples = np.zeros_like(event_samples[max_event_duration_samples - event_samples.shape[0]:])
                     else:
                         # (3.3) rest previous that keeps going into next window
@@ -237,8 +238,8 @@ if __name__ == '__main__':
                     if event_to_save.shape[0] > 0:
                         tot_events.append(event_to_save)
                         tot_features.append(extractEventFeats(event_to_save))
-                        start_event_sample += event_to_save.shape[0]
                         tot_event_start_samples.append(start_event_sample)
+                        start_event_sample += event_to_save.shape[0]
                     event_samples = event_samples[max_event_duration_samples - event_samples.shape[0]:]
                 else:
                     # (3.5) event previous that keeps going into next window
