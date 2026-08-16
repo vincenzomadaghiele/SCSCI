@@ -1,8 +1,10 @@
+import os
 import time
 import json
 import joblib
 import librosa
 import numpy as np
+import pandas as pd
 
 import torch
 
@@ -472,7 +474,28 @@ if __name__ == "__main__":
 
         if ii == SAVE_INTERVAL:
             # save files
+            save_dir = f'{model_dir}/01_live_recordings'
+            os.makedirs(save_dir, exist_ok=True)
+
+            columns = [f'latent-{j}' for j in range(N_latents_src)]
+            columns = []
+            columns.append('rms')
+            columns.append('pitch')
+            columns.append('event_duration')
+            df_src = pd.DataFrame(src_past_events, columns=columns)
+            df_src['event_start'] = src_past_events_starttimes
+            df_src.to_csv(f"{save_dir}/src_events.csv")
+
+            columns = [f'latent-{j}' for j in range(N_latents_tgt)]
+            columns = []
+            columns.append('rms')
+            columns.append('pitch')
+            columns.append('event_duration')
+            df_tgt = pd.DataFrame(tgt_past_events, columns=columns)
+            df_tgt['event_start'] = tgt_past_events_starttimes
+            df_tgt.to_csv(f"{save_dir}/tgt_events.csv")
+
             ii = 0
 
-
+        ii += 1
         time.sleep(update_interval_s)
