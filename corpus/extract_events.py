@@ -253,6 +253,9 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	if sample_duration_s:
 		sample_duration = sample_duration_s * sample_rate
 	plot_feature_src = 'pitch'
+	plot_df_src[plot_feature_src] = plot_df_src[plot_feature_src].astype(float)
+	plot_df_src['event_start'] = plot_df_src['event_start'].astype(float)
+	plot_df_src['event_duration'] = plot_df_src['event_duration'].astype(float)
 	plot_df_src[plot_feature_src] = 2*((plot_df_src[plot_feature_src] - plot_df_src[plot_feature_src].min())/(plot_df_src[plot_feature_src].max() - plot_df_src[plot_feature_src].min())) - 1
 	plot_df_src = plot_df_src[plot_df_src['event_start'] > sample_start]
 	if sample_duration_s and (sample_start+sample_duration) < signal_src.shape[0]:
@@ -269,7 +272,7 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 			new_row_data['event_start'] = e['event_start']
 			new_row_data['event_duration'] = e['event_duration']
 			plot_df_tgt = pd.concat([plot_df_tgt, pd.DataFrame([new_row_data])], ignore_index=True)
-		tgt_audio_filename = src_corpus_entry['filename']
+		tgt_audio_filename = tgt_corpus_entry['filename']
 	else:
 		plot_df_tgt = tgt_corpus_entry
 		tgt_audio_filename = tgt_corpus_entry['filename'].values[0]
@@ -278,6 +281,9 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	if sample_duration_s:
 		sample_duration = sample_duration_s * sample_rate
 	plot_feature_tgt = 'pitch'
+	plot_df_tgt[plot_feature_tgt] = plot_df_tgt[plot_feature_tgt].astype(float)
+	plot_df_tgt['event_start'] = plot_df_tgt['event_start'].astype(float)
+	plot_df_tgt['event_duration'] = plot_df_tgt['event_duration'].astype(float)
 	plot_df_tgt[plot_feature_tgt] = 2*((plot_df_tgt[plot_feature_tgt] - plot_df_tgt[plot_feature_tgt].min())/(plot_df_tgt[plot_feature_tgt].max() - plot_df_tgt[plot_feature_tgt].min())) - 1
 	plot_df_tgt = plot_df_tgt[plot_df_tgt['event_start'] > sample_start]
 	if sample_duration_s and (sample_start+sample_duration) < signal_tgt.shape[0]:
