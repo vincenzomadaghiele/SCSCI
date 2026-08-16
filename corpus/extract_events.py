@@ -192,7 +192,7 @@ def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sampl
 		audio_filename = corpus_entry['filename']
 	else:
 		plot_df_src = corpus_entry
-		audio_filename = corpus_entry['filename'][0]
+		audio_filename = corpus_entry['filename'].values[0]
 
 	signal, _ = librosa.load(audio_filename, sr=sample_rate, mono=True)
 
@@ -246,7 +246,7 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 		src_audio_filename = src_corpus_entry['filename']
 	else:
 		plot_df_src = src_corpus_entry
-		src_audio_filename = src_corpus_entry['filename'][0]
+		src_audio_filename = src_corpus_entry['filename'].values[0]
 
 	signal_src, _ = librosa.load(src_audio_filename, sr=sample_rate, mono=True)
 	sample_start = sample_start_s * sample_rate
@@ -272,7 +272,7 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 		tgt_audio_filename = src_corpus_entry['filename']
 	else:
 		plot_df_tgt = tgt_corpus_entry
-		tgt_audio_filename = tgt_corpus_entry['filename'][0]
+		tgt_audio_filename = tgt_corpus_entry['filename'].values[0]
 	signal_tgt, _ = librosa.load(tgt_audio_filename, sr=sample_rate, mono=True)
 	sample_start = sample_start_s * sample_rate
 	if sample_duration_s:

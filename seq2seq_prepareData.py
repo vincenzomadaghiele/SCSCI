@@ -27,7 +27,7 @@ if __name__ == '__main__':
     corpus_path = f'corpus/{corpus_name}'
     song_names = os.listdir(corpus_path)
     src_tgt = []
-    song_names = [c for c in song_names if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full']]
+    song_names = [c for c in song_names if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full','finetune']]
     song_names.sort()
     src_corpus_files = [f'{corpus_path}/{song_name}/mel/{src_track_name}.npy' for song_name in song_names]
     tgt_corpus_files = [f'{corpus_path}/{song_name}/mel/{tgt_track_name}.npy' for song_name in song_names]
@@ -43,7 +43,6 @@ if __name__ == '__main__':
     VAE_model = Model(Encoder=encoder, Decoder=decoder).to(DEVICE)
     VAE_model.load_state_dict(torch.load(VAE_model_name, weights_only=True))
     VAE_model.eval()
-
 
 
     SYNTH_NAME = 'TimbreTheremin'
@@ -85,7 +84,7 @@ if __name__ == '__main__':
 
     # COMPUTE LATENTS
     # compute src latents using VAE
-    transform = transforms.Compose([transforms.Resize(image_size), transforms.CenterCrop(image_size)])
+    # transform = transforms.Compose([transforms.Resize(image_size), transforms.CenterCrop(image_size)])
     src_events = []
     for song in src_corpus_files:
         event_sequence = np.load(song, allow_pickle=True)
@@ -115,11 +114,17 @@ if __name__ == '__main__':
     print(df_src.head())
     df_src.to_csv(f"{corpus_path}/src_events.csv")
 
+
+
     # compute tgt latents using flow
-    tr = []
-    tr.append(LogTransform(clip=1e-3))
-    tr.append(NormalizeTensor(mean, var))
-    transform = transforms.Compose(tr)
+    # tr = []
+    # tr.append(LogTransform(clip=1e-3))
+    # tr.append(NormalizeTensor(mean, var))
+    # transform = transforms.Compose(tr)
+
+    # encode all mels and find range
+    # if range of latents is smaller than total range of latents
+    # scale latents to cover the whole space
     tgt_events = []
     for song in tgt_corpus_files:
 
@@ -201,3 +206,18 @@ if __name__ == '__main__':
 
     # if finetune
     # add finetune to dfs
+
+    finetune_path = f'{corpus_path}/finetune'
+    song_names = os.listdir(finetune_path)
+    song_names = [c for c in song_names if os.path.isdir(f'{finetune_path}/{c}') and c not in ['.DS_Store', '__pycache__']]
+    for song in song_names:
+        fintune_src = pd.read_csv(f"{finetune_path}/{song}/src_events.csv", index_col=0)
+        fintune_src['filename'] = [f'{finetune_path}/{song}/performance_src.wav' for _ in range(fintune_src.values.shape[0])]
+        fintune_tgt = pd.read_csv(f"{finetune_path}/{song}/tgt_events.csv", index_col=0)
+        fintune_tgt['filename'] = [f'{finetune_path}/{song}/performance_tgt.wav' for _ in range(fintune_tgt.values.shape[0])]
+        df_src = pd.concat([df_src, fintune_src])
+        df_tgt = pd.concat([df_tgt, fintune_tgt])
+        # df_src = df_src.reset_index()
+        # df_tgt = df_tgt.reset_index()
+    df_src.to_csv(f"{corpus_path}/src_events.csv")
+    df_tgt.to_csv(f"{corpus_path}/tgt_events.csv")
