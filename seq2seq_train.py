@@ -123,12 +123,13 @@ if __name__ == '__main__':
     training_parameters['pad_token'] = -1000
     training_parameters['loss_fn'] = 'MSE'
     training_parameters['learning_rate'] = 0.001
-    training_parameters['epochs'] = 1000
+    training_parameters['epochs'] = 2000
     training_parameters['seed'] = 666
     model_load_path = None
 
     random.seed(training_parameters['seed'])
     torch.manual_seed(training_parameters['seed'])
+    np.random.seed(training_parameters['seed'])
 
     features_source = [f'latent-{j}' for j in range(latent_dim)]
     features_source.append('rms')
@@ -139,8 +140,8 @@ if __name__ == '__main__':
     features_target.append('pitch')
     features_target.append('event_duration')
 
-    features_source = ['rms', 'pitch', 'event_duration']
-    features_target = ['rms', 'pitch', 'event_duration']
+    # features_source = ['rms', 'pitch', 'event_duration']
+    # features_target = ['rms', 'pitch', 'event_duration']
 
 
     # MAKE SAVE DIRECTORY
@@ -239,11 +240,11 @@ if __name__ == '__main__':
     randomSubstitute = True
     NUM_AUGMENT = 10
     rmsIndexSrc = features_source.index("rms")
-    rmsIndexTgt = features_source.index("rms")
+    rmsIndexTgt = features_target.index("rms")
     pitchIndexSrc = features_source.index("pitch")
-    pitchIndexTgt = features_source.index("pitch")
+    pitchIndexTgt = features_target.index("pitch")
     durationIndexSrc = features_source.index("event_duration")
-    durationIndexTgt = features_source.index("event_duration")
+    durationIndexTgt = features_target.index("event_duration")
     new_data = []
     for datum in data:
         if datum[0].shape[0] > 0 and datum[1].shape[0] > 0:
@@ -255,7 +256,7 @@ if __name__ == '__main__':
                 if rmsTranspose:
                     # increase or decrease rms by max 10 %
                     RMS_TRANSP = 0.2
-                    coefficient = RMS_TRANSP * (np.random.rand(seed=training_parameters["seed"]) * 2 -1)
+                    coefficient = RMS_TRANSP * (np.random.rand() * 2 -1)
                     x_src[:,rmsIndexSrc] = x_src[:,rmsIndexSrc] + x_src[:,rmsIndexSrc] * coefficient
                     x_tgt[:,rmsIndexTgt] = x_tgt[:,rmsIndexTgt] + x_tgt[:,rmsIndexTgt] * coefficient
                     y_tgt[rmsIndexTgt] = y_tgt[rmsIndexTgt] + y_tgt[rmsIndexTgt] * coefficient
@@ -263,7 +264,7 @@ if __name__ == '__main__':
                 if pitchTranspose:
                     # transpose pitch by max 10 %
                     PITCH_TRANSP = 0.3
-                    coefficient = PITCH_TRANSP * (np.random.rand(seed=training_parameters["seed"]) * 2 -1)
+                    coefficient = PITCH_TRANSP * (np.random.rand() * 2 -1)
                     x_src[:,pitchIndexSrc] = x_src[:,pitchIndexSrc] + x_src[:,pitchIndexSrc] * coefficient
                     x_tgt[:,pitchIndexTgt] = x_tgt[:,pitchIndexTgt] + x_tgt[:,pitchIndexTgt] * coefficient
                     y_tgt[pitchIndexTgt] = y_tgt[pitchIndexTgt] + y_tgt[pitchIndexTgt] * coefficient
@@ -271,19 +272,19 @@ if __name__ == '__main__':
                 if durationTranspose:
                     # increase or decrease durations by max 10 %
                     DUR_TRANSP = 0.3
-                    coefficient = DUR_TRANSP * (np.random.rand(seed=training_parameters["seed"]) * 2 -1)
+                    coefficient = DUR_TRANSP * (np.random.rand() * 2 -1)
                     x_src[:,durationIndexSrc] = x_src[:,durationIndexSrc] + x_src[:,durationIndexSrc] * coefficient
                     x_tgt[:,durationIndexTgt] = x_tgt[:,durationIndexTgt] + x_tgt[:,durationIndexTgt] * coefficient
                     y_tgt[durationIndexTgt] = y_tgt[durationIndexTgt] + y_tgt[durationIndexTgt] * coefficient
                 if maskAugment:
                     MASK_TOKEN = np.ones_like(x_src[0,:-1]) * -10
                     src_len, tgt_len = x_src.shape[0], x_tgt.shape[0]
-                    if np.random.rand(seed=training_parameters["seed"]) > 0.8:
+                    if np.random.rand() > 0.8:
                         x_src[random.randint(0, src_len-1), :-1] = MASK_TOKEN
                         x_tgt[random.randint(0, tgt_len-1), :-1] = MASK_TOKEN
                 if randomSubstitute:
                     src_len, tgt_len = x_src.shape[0]-1, x_tgt.shape[0]-1
-                    if np.random.rand(seed=training_parameters["seed"]) > 0.8:
+                    if np.random.rand() > 0.8:
                         x_src[random.randint(0, src_len), :-1] = x_src[random.randint(0, src_len), :-1]
                         x_tgt[random.randint(0, tgt_len), :-1] = x_tgt[random.randint(0, tgt_len), :-1]
                 new_data.append([x_src, x_tgt, y_tgt])
@@ -333,7 +334,7 @@ if __name__ == '__main__':
         json.dump(training_log, f, ensure_ascii=False, indent=4)
 
     # shuffle sequences
-    np.random.shuffle(data, seed=training_parameters["seed"])
+    np.random.shuffle(data)
 
     # train-validation split
     train_perc = training_parameters['dataset_training_percentage']

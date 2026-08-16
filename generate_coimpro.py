@@ -36,7 +36,7 @@ if __name__ == '__main__':
     corpus_name = 'guitar-duo'
     src_track_name = 'guitar1'
     SYNTH_NAME = 'TimbreTheremin'
-    transformer_name = '1786739157-transformerDiscreteT2V'
+    transformer_name = '1786876104-transformerDiscreteT2V'
     song_name = 'recording3'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
@@ -56,8 +56,8 @@ if __name__ == '__main__':
     features_target.append('pitch')
     features_target.append('event_duration')
 
-    features_source = ['rms', 'pitch', 'event_duration']
-    features_target = ['rms', 'pitch', 'event_duration']
+    # features_source = ['rms', 'pitch', 'event_duration']
+    # features_target = ['rms', 'pitch', 'event_duration']
 
 
     # create model
@@ -100,7 +100,6 @@ if __name__ == '__main__':
     VAE_model.eval()
 
     # LOAD FLOW MODEL FOR TGT COMPUTATION
-    # SYNTH_NAME = 'TimbreTheremin'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
     flow_model.eval()
@@ -242,8 +241,8 @@ if __name__ == '__main__':
         y_pred = tgt_scaler.inverse_transform(y.reshape(1, -1)).reshape(-1)
         # y_pred = y_denorm[-1,:]
         # print(f'{pred_signal_sample}: {next_token}')
-        N_latents_tgt = 0
-        # pred_latents = y_pred[:N_latents_tgt]
+        # N_latents_tgt = 0
+        pred_latents = y_pred[:N_latents_tgt]
         pred_rms = y_pred[N_latents_tgt]
         pred_frequency = np.clip(y_pred[N_latents_tgt+1], 50, 11050)
         pred_duration = int(np.clip(y_pred[N_latents_tgt+2], 882, 88200))
@@ -261,22 +260,22 @@ if __name__ == '__main__':
         # detect rest
         if pred_rms < 0.0001:
             sound_segment = np.zeros(pred_duration)
+            y_pred[:N_latents_tgt] = np.zeros_like(y_pred[:N_latents_tgt])
             y_pred[N_latents_tgt] = 0
             y_pred[N_latents_tgt+1] = 0
             # y_pred = np.zeros_like(y_pred)
         else:
-            # next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
-            # with torch.no_grad():
-            #     predicted_parameters = flow_model.regression_model(next_latents) # parameters
-            # predicted_parameters = predicted_parameters[0].detach().cpu().numpy()
-            # print(predicted_parameters)
+            next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
+            with torch.no_grad():
+                predicted_parameters = flow_model.regression_model(next_latents) # parameters
+            predicted_parameters = predicted_parameters[0].detach().cpu().numpy()
             synth.close()
             synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
             synth.setParameters(['frequency'], [pred_frequency])
             synth.setParameters(['gain'], [float(np.clip(pred_rms*5, 0, 1))])
             synth.setParameters(envelope_param_names, [0.3, 0.3, 0.2, 0.1])
-            synth.setParameters(timbre_param_names, [0.1, 0.1])
-            # synth.setParameters(timbre_param_names, predicted_parameters.tolist())
+            # synth.setParameters(timbre_param_names, [0.1, 0.1])
+            synth.setParameters(timbre_param_names, predicted_parameters.tolist())
             sound_segment = synth.forward((pred_duration - pred_duration/4) / sr) # add possibility of 'note off' to handle different durations synth.forward(duration)
             sound_segment = sound_segment[:pred_duration]
         end_lookup_time = time.time()

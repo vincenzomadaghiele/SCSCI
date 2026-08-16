@@ -129,7 +129,6 @@ if __name__ == '__main__':
         original_reconstruct = np.zeros_like(signal)
         resynthesized_reconstruct = np.zeros_like(signal)
 
-        # 
         event_sequence = np.load(song, allow_pickle=True)
         for event in event_sequence:
             # detect rest
@@ -169,24 +168,24 @@ if __name__ == '__main__':
                 original_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = signal[event['event_start']:event['event_start']+event['event_duration']]
                 resynthesized_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = event['resynthesized'] * makeCrownWindow(event['event_duration'])
 
-            # # SAVE AUDIOFILE
-            SAVE_FILEPATH = f'./corpus/{corpus_name}/{song_name}/resynthesized'
-            os.makedirs(SAVE_FILEPATH, exist_ok=True)
-            sf.write(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.wav', resynthesized_reconstruct, sr, subtype='PCM_24')
+        # # SAVE AUDIOFILE
+        SAVE_FILEPATH = f'./corpus/{corpus_name}/{song_name}/resynthesized'
+        os.makedirs(SAVE_FILEPATH, exist_ok=True)
+        sf.write(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.wav', resynthesized_reconstruct, sr, subtype='PCM_24')
 
-            # MAKE DUAL FIGURE
-            fig, ax = plt.subplots(2, figsize=(16, 6))
-            librosa.display.waveshow(y=original_reconstruct, sr=sr, color="black", axis='time', ax=ax[0], alpha=0.2)
-            librosa.display.waveshow(y=resynthesized_reconstruct, sr=sr, color="black", axis='time', ax=ax[1], alpha=0.2)
-            ax[0].set_title('original')
-            ax[1].set_title('resynthesized')
-            ax[0].set_xticks([])
-            ax[0].set_xlabel('')
-            ax[1].set_xlabel('time')
-            ax[0].set_ylim([-1,1])
-            ax[1].set_ylim([-1,1])
-            fig.savefig(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.png')
-            plt.close(fig)
+        # MAKE DUAL FIGURE
+        fig, ax = plt.subplots(2, figsize=(16, 6))
+        librosa.display.waveshow(y=original_reconstruct, sr=sr, color="black", axis='time', ax=ax[0], alpha=0.2)
+        librosa.display.waveshow(y=resynthesized_reconstruct, sr=sr, color="black", axis='time', ax=ax[1], alpha=0.2)
+        ax[0].set_title('original')
+        ax[1].set_title('resynthesized')
+        ax[0].set_xticks([])
+        ax[0].set_xlabel('')
+        ax[1].set_xlabel('time')
+        ax[0].set_ylim([-1,1])
+        ax[1].set_ylim([-1,1])
+        fig.savefig(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.png')
+        plt.close(fig)
 
     tgt_events = np.array(tgt_events)
     print(tgt_events.shape)
@@ -199,3 +198,6 @@ if __name__ == '__main__':
     df_tgt = pd.DataFrame(tgt_events, columns=columns)
     print(df_tgt.head())
     df_tgt.to_csv(f"{corpus_path}/tgt_events.csv")
+
+    # if finetune
+    # add finetune to dfs

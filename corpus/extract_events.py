@@ -177,19 +177,24 @@ def detectRests(events, num_MEL, min_rest_length_samples, max_length_samples, FF
 				total_rest_duration = 0
 	return new_events
 
-def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sample_duration_s=None):
-	plot_df_src = pd.DataFrame(columns=['rms','pitch','mels','event_start','event_duration'])
-	for e in corpus_entry['events']:
-		if e['mel'].shape[0] > 0:
-			new_row_data = {} 
-			new_row_data['rms'] = e['rms']
-			new_row_data['pitch'] = e['pitch']
-			new_row_data['mels'] = e['mel'].mean()
-			new_row_data['event_start'] = e['event_start']
-			new_row_data['event_duration'] = e['event_duration']
-			plot_df_src = pd.concat([plot_df_src, pd.DataFrame([new_row_data])], ignore_index=True)
+def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sample_duration_s=None, isDfin=False):
+	if not isDfin:
+		plot_df_src = pd.DataFrame(columns=['rms','pitch','mels','event_start','event_duration'])
+		for e in corpus_entry['events']:
+			if e['mel'].shape[0] > 0:
+				new_row_data = {} 
+				new_row_data['rms'] = e['rms']
+				new_row_data['pitch'] = e['pitch']
+				new_row_data['mels'] = e['mel'].mean()
+				new_row_data['event_start'] = e['event_start']
+				new_row_data['event_duration'] = e['event_duration']
+				plot_df_src = pd.concat([plot_df_src, pd.DataFrame([new_row_data])], ignore_index=True)
+		audio_filename = corpus_entry['filename']
+	else:
+		plot_df_src = corpus_entry
+		audio_filename = corpus_entry['filename'][0]
 
-	signal, _ = librosa.load(corpus_entry['filename'], sr=sample_rate, mono=True)
+	signal, _ = librosa.load(audio_filename, sr=sample_rate, mono=True)
 
 	sample_start = sample_start_s * sample_rate
 	if sample_duration_s:
@@ -218,7 +223,7 @@ def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sampl
 	ax.legend()
 	ax.set_xlabel('time [s]')
 	ax.set_ylabel(plot_feature_src)
-	figname = corpus_entry['filename'].split('/')[-1].split('.')[0]
+	figname = audio_filename.split('/')[-1].split('.')[0]
 	ax.set_title(figname)
 	if save_dir:
 		plt.savefig(f'{save_dir}/{figname}.png')
@@ -226,18 +231,24 @@ def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sampl
 	else:
 		plt.show()
 
-def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sample_duration_s=None):
-	plot_df_src = pd.DataFrame(columns=['rms','pitch','mels','event_start','event_duration'])
-	for e in src_corpus_entry['events']:
-		if e['mel'].shape[0] > 0:
-			new_row_data = {} 
-			new_row_data['rms'] = e['rms']
-			new_row_data['pitch'] = e['pitch']
-			new_row_data['mels'] = e['mel'].mean()
-			new_row_data['event_start'] = e['event_start']
-			new_row_data['event_duration'] = e['event_duration']
-			plot_df_src = pd.concat([plot_df_src, pd.DataFrame([new_row_data])], ignore_index=True)
-	signal_src, _ = librosa.load(src_corpus_entry['filename'], sr=sample_rate, mono=True)
+def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sample_duration_s=None, isDfin=False):
+	if not isDfin:
+		plot_df_src = pd.DataFrame(columns=['rms','pitch','mels','event_start','event_duration'])
+		for e in src_corpus_entry['events']:
+			if e['mel'].shape[0] > 0:
+				new_row_data = {} 
+				new_row_data['rms'] = e['rms']
+				new_row_data['pitch'] = e['pitch']
+				new_row_data['mels'] = e['mel'].mean()
+				new_row_data['event_start'] = e['event_start']
+				new_row_data['event_duration'] = e['event_duration']
+				plot_df_src = pd.concat([plot_df_src, pd.DataFrame([new_row_data])], ignore_index=True)
+		src_audio_filename = src_corpus_entry['filename']
+	else:
+		plot_df_src = src_corpus_entry
+		src_audio_filename = src_corpus_entry['filename'][0]
+
+	signal_src, _ = librosa.load(src_audio_filename, sr=sample_rate, mono=True)
 	sample_start = sample_start_s * sample_rate
 	if sample_duration_s:
 		sample_duration = sample_duration_s * sample_rate
@@ -248,16 +259,21 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 		plot_df_src = plot_df_src[plot_df_src['event_start'] < sample_start+sample_duration]
 	plot_df_src['event_start'] = plot_df_src['event_start'] - sample_start
 
-	plot_df_tgt = pd.DataFrame(columns=['rms','pitch','mels','event_start','event_duration'])
-	for e in tgt_corpus_entry['events']:
-		new_row_data = {} 
-		new_row_data['rms'] = e['rms']
-		new_row_data['pitch'] = e['pitch']
-		new_row_data['mels'] = e['mel'].mean()
-		new_row_data['event_start'] = e['event_start']
-		new_row_data['event_duration'] = e['event_duration']
-		plot_df_tgt = pd.concat([plot_df_tgt, pd.DataFrame([new_row_data])], ignore_index=True)
-	signal_tgt, _ = librosa.load(tgt_corpus_entry['filename'], sr=sample_rate, mono=True)
+	if not isDfin:
+		plot_df_tgt = pd.DataFrame(columns=['rms','pitch','mels','event_start','event_duration'])
+		for e in tgt_corpus_entry['events']:
+			new_row_data = {} 
+			new_row_data['rms'] = e['rms']
+			new_row_data['pitch'] = e['pitch']
+			new_row_data['mels'] = e['mel'].mean()
+			new_row_data['event_start'] = e['event_start']
+			new_row_data['event_duration'] = e['event_duration']
+			plot_df_tgt = pd.concat([plot_df_tgt, pd.DataFrame([new_row_data])], ignore_index=True)
+		tgt_audio_filename = src_corpus_entry['filename']
+	else:
+		plot_df_tgt = tgt_corpus_entry
+		tgt_audio_filename = tgt_corpus_entry['filename'][0]
+	signal_tgt, _ = librosa.load(tgt_audio_filename, sr=sample_rate, mono=True)
 	sample_start = sample_start_s * sample_rate
 	if sample_duration_s:
 		sample_duration = sample_duration_s * sample_rate
@@ -303,9 +319,9 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	ax[1].set_ylabel(plot_feature_tgt)
 	ax[0].set_xlabel([])
 	ax[1].set_xlabel('time [s]')
-	ax[0].set_title(src_corpus_entry['filename'].split('/')[-1].split('.')[0])
-	ax[1].set_title(tgt_corpus_entry['filename'].split('/')[-1].split('.')[0])
-	songname = src_corpus_entry['filename'].split('/')[-2]
+	ax[0].set_title(src_audio_filename.split('/')[-1].split('.')[0])
+	ax[1].set_title(tgt_audio_filename.split('/')[-1].split('.')[0])
+	songname = src_audio_filename.split('/')[-2]
 	if save_dir:
 		fig.savefig(f'{save_dir}/{songname}.png')
 		plt.close(fig)
