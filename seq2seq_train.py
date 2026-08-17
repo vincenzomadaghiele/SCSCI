@@ -218,13 +218,13 @@ if __name__ == '__main__':
             # we subtract inference time 
             # so that we can call inference some time before the end of an onset
             window_start_idx = (y_times[j+1] - PRED_TIME_SAMPLES) - WINDOW_N_SAMPLES
-            indices = np.where((X_times >= window_start_idx) & (X_times < y_times[j+1]))
             # add time difference index
+            indices = np.where((X_times >= window_start_idx) & (X_times < y_times[j+1]))
             x_src_window_times = (y_times[j+1] - PRED_TIME_SAMPLES) - X_times[indices]
             x_src = np.concatenate((X_values[indices], x_src_window_times.reshape(-1,1)), axis=1)
             all_src_times += x_src_window_times.tolist()
-            indices = np.where((y_times >= window_start_idx) & (y_times < y_times[j+1]))
             # add time difference index
+            indices = np.where((y_times >= window_start_idx) & (y_times < y_times[j+1]))
             x_tgt_window_times = (y_times[j+1] - PRED_TIME_SAMPLES) - y_times[indices]
             x_tgt = np.concatenate((y_values[indices], x_tgt_window_times.reshape(-1,1)), axis=1)
             all_tgt_times += x_tgt_window_times.tolist()

@@ -11,16 +11,15 @@ if __name__ == '__main__':
     corpus_name = "guitar-duo"
     SYNTH_NAME = "TimbreTheremin"
     transformer_name = '1786876104-transformerDiscreteT2V'
-    performance_name = '1786882569'
+    performance_name = '1786971059'
     model_dir = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     performance_dir = f'{model_dir}/01_live_recordings/{performance_name}'
     df_src = pd.read_csv(f"{performance_dir}/src_events.csv", index_col=0)
     df_tgt = pd.read_csv(f"{performance_dir}/tgt_events.csv", index_col=0)
 
-
     sr = 22050
-    START_SLICE_INDEX_S = 10
-    STOP_SLICE_INDEX_S = 40
+    START_SLICE_INDEX_S = 50
+    STOP_SLICE_INDEX_S = 160
 
     sliced_dir = f'{performance_dir}/sliced/sliced-{START_SLICE_INDEX_S}_{STOP_SLICE_INDEX_S}'
     os.makedirs(sliced_dir, exist_ok=True)
@@ -40,7 +39,7 @@ if __name__ == '__main__':
     sf.write(f'{sliced_dir}/performance_src-{START_SLICE_INDEX_S}_{STOP_SLICE_INDEX_S}.wav', signal_src[START_SLICE_INDEX_S * sr : STOP_SLICE_INDEX_S * sr], sr)
     signal_tgt, _ = librosa.load(f'{performance_dir}/performance_tgt.wav', mono=False)
     sf.write(f'{sliced_dir}/performance_tgt-{START_SLICE_INDEX_S}_{STOP_SLICE_INDEX_S}.wav', signal_tgt[START_SLICE_INDEX_S * sr : STOP_SLICE_INDEX_S * sr], sr)
-    stereo_data = np.column_stack((signal_src, signal_tgt))
+    stereo_data = np.column_stack((signal_src[START_SLICE_INDEX_S * sr : STOP_SLICE_INDEX_S * sr], signal_tgt[START_SLICE_INDEX_S * sr : STOP_SLICE_INDEX_S * sr]))
     sf.write(f'{sliced_dir}/performance-{START_SLICE_INDEX_S}_{STOP_SLICE_INDEX_S}.wav', stereo_data, sr)
 
     df_src_sliced['filename'] = [f'{sliced_dir}/performance_src-{START_SLICE_INDEX_S}_{STOP_SLICE_INDEX_S}.wav' for _ in range(df_src_sliced.values.shape[0])]

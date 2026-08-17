@@ -445,7 +445,7 @@ if __name__ == "__main__":
                     x_src_window_times = (pred_signal_sample - PRED_TIME_SAMPLES) - times_src[indices].reshape(-1,1) # add time difference index
                     input_src_array = np.concatenate((input_src[indices], x_src_window_times.reshape(-1,1)), axis=1)[-training_parameters['max_sequence_length']:,:]
                     if input_src_array.shape[0] == 0:
-                        input_src_array = np.zeros(N_latents_src+2).tolist() + [882, 10]
+                        input_src_array = np.zeros(N_latents_src+2).tolist() + [882, training_parameters['window_size_s']-1]
                         # input_src_array = np.zeros(2).tolist() + [882, 10]
                         input_src_array = np.array(input_src_array).reshape(1,-1)
 
@@ -456,7 +456,7 @@ if __name__ == "__main__":
                     x_tgt_window_times = (pred_signal_sample - PRED_TIME_SAMPLES) - times_tgt[indices].reshape(-1,1) # add time difference index
                     input_tgt_array = np.concatenate((input_tgt[indices], x_tgt_window_times.reshape(-1,1)), axis=1)[-training_parameters['max_sequence_length']:,:]
                     if input_tgt_array.shape[0] == 0:
-                        input_tgt_array = np.zeros(N_latents_tgt+2).tolist() + [882, 10]
+                        input_tgt_array = np.zeros(N_latents_tgt+2).tolist() + [882, training_parameters['window_size_s']-1]
                         # input_tgt_array = np.zeros(2).tolist() + [882, 10]
                         input_tgt_array = np.array(input_tgt_array).reshape(1,-1)
 
@@ -467,11 +467,7 @@ if __name__ == "__main__":
 
 
             time_end = time.time()
-            # print(time_end-time_start)
-            # print(update_interval_s)
-
-            time.sleep( update_interval_s - update_interval_s * 0.30)
-            # time.sleep(max(0, update_interval_s - (time_end-time_start)))
+            time.sleep( update_interval_s - update_interval_s * 0.30) # reduce 30% time (not sure why..)
 
     except KeyboardInterrupt:
         graph.stop_recording()

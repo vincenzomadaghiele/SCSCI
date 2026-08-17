@@ -350,56 +350,10 @@ for i in range(args.epochs):
 
 """
 ###################
-Evaluation section
+Saving latents
 ###################
 """
-from flow_evaluate import evaluate_params, evaluate_synthesis, evaluate_projection
-from flow_evaluate import evaluate_reconstruction, evaluate_latent_space
-from flow_evaluate import evaluate_meta_parameters, evaluate_semantic_parameters
-from flow_evaluate import evaluate_latent_neighborhood
-args.plot = 'final'
-args.model_name, args.base_img, args.base_audio = model_name, base_img, base_audio
-args.base_model = args.output + '/models/' + model_name
-print('[Reload best performing model]')
-model = torch.load(args.output + '/models/' + model_name + '.model', weights_only=False)
-model = model.to(args.device)
-print('[Performing final evaluation]')
-# Memory saver
 with torch.no_grad():
-    # Perform parameters evaluation
-    evaluate_params(model, test_loader, args, losses=losses)
-    # Synthesis engine (on GPU)
-    if (args.synthesize):
-        # Import synthesis
-        from synth.synthesize import create_synth
-        print('[Synthesis evaluation]')
-        # Create synth rendering system
-        args.engine, args.generator, args.param_defaults, args.rev_idx = create_synth(args.dataset)
-    # Evaluation specific to AE models
-    if (args.model not in ['mlp', 'gated_mlp', 'cnn', 'gated_cnn', 'res_cnn']):
-        # Perform reconstruction evaluation
-        evaluate_reconstruction(model, test_loader, args, train=False)
-        # Evaluate latent space
-        args = evaluate_latent_space(model, test_loader, args, train=False)
-        # Perform meta-parameter analysis
-        evaluate_meta_parameters(model, test_loader, args, train=False)
-        # Perform latent neighborhood analysis
-        # evaluate_latent_neighborhood(model, test_loader, args, train=False)
-        # Perform semantic parameter analysis
-        # evaluate_semantic_parameters(model, test_loader, args, train=False)
-    # Synthesis engine (on GPU)
-    if (args.synthesize):
-        # Evaluate synthesizer output
-        evaluate_synthesis(model, test_loader, args, train=False)
-        print('[Load set of testing sound (outside Diva)]')
-        test_sounds = get_external_sounds(args.test_sounds, test_loader.dataset, args)
-        # Evaluate projection
-        evaluate_projection(model, test_sounds, args, train=False)
-        print('[Evaluate vocal sketching dataset]')
-        test_sounds = get_external_sounds(args.vocal_sounds, test_loader.dataset, args)
-        # Evaluate projection
-        evaluate_projection(model, test_sounds, args, train=False, type_val='vocal')
-
     # MAKE MAP AND EXPORT LATENTS
     tot_params = []
     tot_latents = []
@@ -450,3 +404,55 @@ with torch.no_grad():
     json_output = json.dumps(js_data, indent=4)
     with open(f'{saveVisDir}/dataset3D.json', 'w') as f:
         f.write(json_output)
+
+"""
+###################
+Evaluation section
+###################
+"""
+from flow_evaluate import evaluate_params, evaluate_synthesis, evaluate_projection
+from flow_evaluate import evaluate_reconstruction, evaluate_latent_space
+from flow_evaluate import evaluate_meta_parameters, evaluate_semantic_parameters
+from flow_evaluate import evaluate_latent_neighborhood
+args.plot = 'final'
+args.model_name, args.base_img, args.base_audio = model_name, base_img, base_audio
+args.base_model = args.output + '/models/' + model_name
+print('[Reload best performing model]')
+model = torch.load(args.output + '/models/' + model_name + '.model', weights_only=False)
+model = model.to(args.device)
+print('[Performing final evaluation]')
+# Memory saver
+with torch.no_grad():
+    # Perform parameters evaluation
+    evaluate_params(model, test_loader, args, losses=losses)
+    # Synthesis engine (on GPU)
+    if (args.synthesize):
+        # Import synthesis
+        from synth.synthesize import create_synth
+        print('[Synthesis evaluation]')
+        # Create synth rendering system
+        args.engine, args.generator, args.param_defaults, args.rev_idx = create_synth(args.dataset)
+    # Evaluation specific to AE models
+    if (args.model not in ['mlp', 'gated_mlp', 'cnn', 'gated_cnn', 'res_cnn']):
+        # Perform reconstruction evaluation
+        evaluate_reconstruction(model, test_loader, args, train=False)
+        # Evaluate latent space
+        args = evaluate_latent_space(model, test_loader, args, train=False)
+        # Perform meta-parameter analysis
+        evaluate_meta_parameters(model, test_loader, args, train=False)
+        # Perform latent neighborhood analysis
+        # evaluate_latent_neighborhood(model, test_loader, args, train=False)
+        # Perform semantic parameter analysis
+        # evaluate_semantic_parameters(model, test_loader, args, train=False)
+    # Synthesis engine (on GPU)
+    if (args.synthesize):
+        # Evaluate synthesizer output
+        evaluate_synthesis(model, test_loader, args, train=False)
+        print('[Load set of testing sound (outside Diva)]')
+        test_sounds = get_external_sounds(args.test_sounds, test_loader.dataset, args)
+        # Evaluate projection
+        evaluate_projection(model, test_sounds, args, train=False)
+        print('[Evaluate vocal sketching dataset]')
+        test_sounds = get_external_sounds(args.vocal_sounds, test_loader.dataset, args)
+        # Evaluate projection
+        evaluate_projection(model, test_sounds, args, train=False, type_val='vocal')

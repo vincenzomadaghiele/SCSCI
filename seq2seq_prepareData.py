@@ -115,12 +115,28 @@ if __name__ == '__main__':
     df_src.to_csv(f"{corpus_path}/src_events.csv")
 
 
-
     # compute tgt latents using flow
-    # tr = []
-    # tr.append(LogTransform(clip=1e-3))
-    # tr.append(NormalizeTensor(mean, var))
-    # transform = transforms.Compose(tr)
+    latents = []
+    for song in tgt_corpus_files:
+        event_sequence = np.load(song, allow_pickle=True)
+        for event in event_sequence:
+            if event['rms'] != 0:
+                z_tilde, predicted_parameters = melToFlowLatents(event['mel'], flow_model, mean, var)
+                latents.append(z_tilde)
+    latents = np.array(latents)
+    latents_mean = latents.mean(axis=0)
+    latents_std = latents.std(axis=0)
+    print(f'resynthesized mean: {latents_mean}')
+    print(f'resynthesized std: {latents_std}')
+
+    total_latents = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{model_name}/latents.npy')
+    total_latents_mean = total_latents.mean(axis=0)
+    total_latents_std = total_latents.std(axis=0)
+    print(f'total timbre space mean: {total_latents_mean}')
+    print(f'total timbre space std: {total_latents_std}')
+
+    # (lat - latents_mean) * (total_latents_std / latents_std) + total_latents_mean
+    timbreRescale = True # rescale timbre for resynthesis
 
     # encode all mels and find range
     # if range of latents is smaller than total range of latents
@@ -139,6 +155,8 @@ if __name__ == '__main__':
             # detect rest
             if event['rms'] != 0:
                 event_latents, _ = melToFlowLatents(event['mel'], flow_model, mean, var)
+                if timbreRescale:
+                    event_latents = (event_latents - latents_mean) * (total_latents_std / latents_std) + total_latents_mean
                 event_latents = event_latents.tolist()
             else:
                 event_latents = (np.zeros(N_latents_tgt)).tolist()
