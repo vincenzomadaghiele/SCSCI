@@ -18,6 +18,9 @@ from corpus.extract_events import detectOnsets
 from resynthesize import melToVAElatents
 
 
+import warnings
+warnings.filterwarnings('ignore')
+
 def adjustAmplitude(signal, FFT_window_size, hop_size, signal_max=None):
     rms = librosa.feature.rms(y=signal, frame_length=FFT_window_size, hop_length=hop_size)
     if rms.max() < 0.7: # normalize amplitude
@@ -110,7 +113,8 @@ if __name__ == "__main__":
     config.output_device_name = "UltraLite-mk5"
     config.input_device_name = "UltraLite-mk5"
     graph = AudioGraph(config)
-    audio_in = AudioIn()
+    audio_in = AudioIn(1)
+    audio_in = audio_in[0]
     panned_audio_in = StereoPanner( audio_in, pan=1)
     graph.play(panned_audio_in) 
     impulse = StereoPanner( Impulse(frequency=0), pan=0)
@@ -143,17 +147,13 @@ if __name__ == "__main__":
     input_tgt_array = np.zeros((1,len(features_target)+1))
 
     # CONSTANTS FOR GENERATION
-    # features = np.zeros(len(features_source))
-    # last_onset = 0
     PRED_TIME_SAMPLES = 0
     pred_signal_sample = 0
     src_signal_sample = 0
     model_inference_time_s = 0.003
     inference_time_samples = model_inference_time_s * sr
-    # current_src_onset = np.zeros(FFT_window)
-    # current_tgt_onset = np.zeros(FFT_window)
     tgt_samples_left = 0
-    silence_threshold = 0.01 # SILENCE THREHSOLD NEEDS TO BE ADAPTED TO LIVE SITUATION
+    silence_threshold = 0.03 # SILENCE THREHSOLD NEEDS TO BE ADAPTED TO LIVE SITUATION
 
     # UTILS FUNCTION
     def detectRest(event):
@@ -170,7 +170,7 @@ if __name__ == "__main__":
             return [event]
 
     timbre_pitch = True
-    def extractEventFeats(signal):
+    def extractEventFeats(signal, time=0):
         # compute features of event
         rms = librosa.feature.rms(y=signal, frame_length=FFT_window, hop_length=hop_size)
         pitch = librosa.yin(signal, fmin=50, fmax=11000, sr=sr, frame_length=FFT_window, hop_length=hop_size)
@@ -190,59 +190,54 @@ if __name__ == "__main__":
         event_latents.append(pitch.mean()) 
         event_latents.append(np.clip(event_duration, 882, 88200)) 
         features = np.array(event_latents)
-        print(f'EVENT | rms: {rms.mean():.3f}, pitch: {pitch.mean():.3f}, duration: {event_duration / sr:.3f}')
+        print(f'[{time/sr:.3f}] HUMAN EVENT | rms: {rms.mean():.3f}, pitch: {pitch.mean():.3f}, duration: {event_duration / sr:.3f}')
         return features
 
-    def makeRest(signal):
-        event_duration = signal.shape[0]
+    def makeRest(signal, time=0):
+        event_duration = np.clip(signal.shape[0], 882, 88200)
         event_latents = np.zeros(latent_dim).tolist()
         # event_latents = [] # remove this if using latents
         event_latents.append(0) 
         event_latents.append(0) 
-        event_latents.append(np.clip(event_duration, 882, 88200)) 
+        event_latents.append(event_duration) 
         features = np.array(event_latents)
-        print(f'REST  | rms: {0}, pitch: {0}, duration: {event_duration / sr:.3f}')
+        print(f'[{time/sr:.3f}] HUMAN REST  | rms: {0}, pitch: {0}, duration: {event_duration / sr:.3f}')
         return features
 
 
     # log events
     event_samples = np.zeros(hop_size)
-    # tot_events = []
-    # tot_features = []
-    # tot_event_start_samples = []
-    found_onsets_general = []
     start_event_sample = 0
     prev_onset_position = 0
-    count_frames = 0
-
+    found_onsets_general = []
     src_past_events = []
     src_past_events_starttimes = []
     tgt_past_events = []
     tgt_past_events_starttimes = []
-
-    SAVE_INTERVAL = 25
-    ii = 0
     try:
         # save files
         timestamp = int(time.time())
         save_dir = f'{model_dir}/01_live_recordings/{timestamp}'
         os.makedirs(save_dir, exist_ok=True)
         graph.start_recording(f'{save_dir}/performance.wav', num_channels=2)
+        count_frames = 0
 
         while True:
             signal = input_buffer.data[0,:]
             # print(signal.shape)
             count_frames += hop_size
 
+            time_start = time.time()
             if count_frames > FFT_window:
 
                 rms = librosa.feature.rms(y=signal, frame_length=FFT_window, hop_length=hop_size)[0]
                 # MAKE ADAPTIVE ADJUST AMP
-                # if rms.mean() > silence_threshold / 2:
-                #     signal = adjustAmplitude(signal, FFT_window, hop_size)
-                # else: 
-                #     signal = np.zeros_like(signal)
-                onsets_samples = detectOnsets(signal, sr, min_event_duration_samples=min_event_duration_samples)
+                if rms.mean() > silence_threshold:
+                    adj_signal = adjustAmplitude(signal, FFT_window, hop_size)
+                else: 
+                    adj_signal = np.zeros_like(signal)
+                onsets_samples = detectOnsets(adj_signal, sr, min_event_duration_samples=min_event_duration_samples)
+                # onsets_samples = detectOnsets(signal, sr, min_event_duration_samples=min_event_duration_samples)
 
                 # check if onset already found in previous windows
                 alreadyFound = False
@@ -260,10 +255,8 @@ if __name__ == "__main__":
                 event_samples = np.concatenate((event_samples, signal[-hop_size:].reshape(-1)))
                 if newOnsets:
                     # graph.play(Impulse(frequency=0)) 
-
                     # event before onset
                     event = event_samples[:newOnsets[0]-FFT_window]
-
                     # (1) BEFORE THE ONSET
                     event_with_rest = detectRest(event)
                     if len(event_with_rest) == 2:
@@ -271,27 +264,18 @@ if __name__ == "__main__":
                             # (1.1) end of a rest
                             event_to_save = event_with_rest[1]
                             if event_to_save.shape[0] > 0:
-                                # tot_events.append(event_to_save)
-                                # tot_features.append(makeRest(event_to_save))
-                                # tot_event_start_samples.append(start_event_sample)
-                                src_past_events.append(makeRest(event_to_save))
+                                src_past_events.append(makeRest(event_to_save, time=count_frames))
                                 src_past_events_starttimes.append(start_event_sample)
                                 start_event_sample += event_to_save.shape[0]
                         else:
                             # (1.2) end of previous event + rest
                             event_to_save = event_with_rest[0]
                             if event_to_save.shape[0] > 0:
-                                # tot_events.append(event_to_save)
-                                # tot_features.append(extractEventFeats(event_to_save))
-                                # tot_event_start_samples.append(start_event_sample)
-                                src_past_events.append(extractEventFeats(event_to_save))
+                                src_past_events.append(extractEventFeats(event_to_save, time=count_frames))
                                 src_past_events_starttimes.append(start_event_sample)
                                 start_event_sample += event_to_save.shape[0]
                             event_to_save = event_with_rest[1]
                             if event_to_save.shape[0] > 0:
-                                # tot_events.append(event_to_save)
-                                # tot_features.append(makeRest(event_to_save))
-                                # tot_event_start_samples.append(start_event_sample)
                                 src_past_events.append(makeRest(event_to_save))
                                 src_past_events_starttimes.append(start_event_sample)
                                 start_event_sample += event_to_save.shape[0]
@@ -299,10 +283,7 @@ if __name__ == "__main__":
                         # (1.3) end of previous event coincides with new onset (no rest)
                         event_to_save = event_with_rest[0]
                         if event_to_save.shape[0] > 0:
-                            # tot_events.append(event_to_save)
-                            # tot_features.append(extractEventFeats(event_to_save))
-                            # tot_event_start_samples.append(start_event_sample)
-                            src_past_events.append(extractEventFeats(event_to_save))
+                            src_past_events.append(extractEventFeats(event_to_save, time=count_frames))
                             src_past_events_starttimes.append(start_event_sample)
                             start_event_sample += event_to_save.shape[0]
 
@@ -313,13 +294,9 @@ if __name__ == "__main__":
                         # (2.1) event + rest that keeps going into next window
                         event_to_save = event_with_rest[0]
                         if event_to_save.shape[0] > 0:
-                            # tot_events.append(event_to_save)
-                            # tot_features.append(extractEventFeats(event_to_save))
-                            # tot_event_start_samples.append(start_event_sample)
-                            src_past_events.append(extractEventFeats(event_to_save))
+                            src_past_events.append(extractEventFeats(event_to_save, time=count_frames))
                             src_past_events_starttimes.append(start_event_sample)
                             start_event_sample += event_to_save.shape[0]
-
                         event_samples = np.zeros_like(event_with_rest[1])
                     else:
                         # (2.2) event keeps going into next window
@@ -332,13 +309,9 @@ if __name__ == "__main__":
                         if event_with_rest[0].shape[0] > 0:
                             event_to_save = event_with_rest[0]
                             if event_to_save.shape[0] > 0:
-                                # tot_events.append(event_to_save)
-                                # tot_features.append(extractEventFeats(event_to_save))
-                                # tot_event_start_samples.append(start_event_sample)
-                                src_past_events.append(extractEventFeats(event_to_save))
+                                src_past_events.append(extractEventFeats(event_to_save, time=count_frames))
                                 src_past_events_starttimes.append(start_event_sample)
                                 start_event_sample += event_to_save.shape[0]
-
                             event_samples = np.zeros_like(event_with_rest[1])
                         else:
                             event_samples = event_with_rest[1]
@@ -346,13 +319,9 @@ if __name__ == "__main__":
                                 # (3.2) rest too long: cut and next keeps going into next window
                                 event_to_save = event_samples[:max_event_duration_samples - event_samples.shape[0]]
                                 if event_to_save.shape[0] > 0:
-                                    # tot_events.append(event_to_save)
-                                    # tot_features.append(makeRest(event_to_save))
-                                    # tot_event_start_samples.append(start_event_sample)
-                                    src_past_events.append(makeRest(event_to_save))
+                                    src_past_events.append(makeRest(event_to_save, time=count_frames))
                                     src_past_events_starttimes.append(start_event_sample)
                                     start_event_sample += event_to_save.shape[0]
-
                                 event_samples = np.zeros_like(event_samples[max_event_duration_samples - event_samples.shape[0]:])
                             else:
                                 # (3.3) rest previous that keeps going into next window
@@ -363,13 +332,9 @@ if __name__ == "__main__":
                             # (3.4) event too long: cut and next keeps going into next window
                             event_to_save = event_samples[:max_event_duration_samples - event_samples.shape[0]]
                             if event_to_save.shape[0] > 0:
-                                # tot_events.append(event_to_save)
-                                # tot_features.append(extractEventFeats(event_to_save))
-                                # tot_event_start_samples.append(start_event_sample)
-                                src_past_events.append(extractEventFeats(event_to_save))
+                                src_past_events.append(extractEventFeats(event_to_save, time=count_frames))
                                 src_past_events_starttimes.append(start_event_sample)
                                 start_event_sample += event_to_save.shape[0]
-                                
                             event_samples = event_samples[max_event_duration_samples - event_samples.shape[0]:]
                         else:
                             # (3.5) event previous that keeps going into next window
@@ -415,7 +380,7 @@ if __name__ == "__main__":
                 y_pred[N_latents_tgt+1] = pred_frequency
                 y_pred[N_latents_tgt+2] = pred_duration
             
-                print(y.reshape(-1), y_pred)
+                # print(y.reshape(-1), y_pred)
 
                 if pred_rms < 0.0001:
                     sound_segment = np.zeros(pred_duration)
@@ -423,6 +388,7 @@ if __name__ == "__main__":
                     y_pred[N_latents_tgt] = 0
                     y_pred[N_latents_tgt+1] = 0
                     # y_pred = np.zeros_like(y_pred)
+                    print(f'[{count_frames/sr:.3f}] SYNTH REST  | rms: {0:.3f}, pitch: {0:.3f}, duration: {pred_duration / sr:.3f}')
                 else:
                     next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
                     with torch.no_grad():
@@ -445,19 +411,21 @@ if __name__ == "__main__":
                     synth.play()
                     # panner = StereoPanner( synth , pan=1)
                     # panner.play()
-                    
+                    print(f'[{count_frames/sr:.3f}] SYNTH EVENT | rms: {pred_rms:.3f}, pitch: {pred_frequency:.3f}, duration: {pred_duration / sr:.3f}')
+
                 end_lookup_time = time.time()
                 # append event to event log
                 tgt_past_events.append(y_pred)
+                pred_signal_sample = count_frames
                 tgt_past_events_starttimes.append(pred_signal_sample)
-                pred_signal_sample += int(pred_duration)
+                # pred_signal_sample += int(pred_duration)
 
                 if len(src_past_events) > 0 and len(tgt_past_events) > 0:
+                    window_start_idx = (pred_signal_sample - PRED_TIME_SAMPLES) - WINDOW_N_SAMPLES
 
                     # get source events in window before current
                     input_src = np.array(src_past_events)
                     times_src = np.array(src_past_events_starttimes)#.reshape(-1,1)
-                    window_start_idx = (pred_signal_sample - PRED_TIME_SAMPLES) - WINDOW_N_SAMPLES
                     indices = np.where((times_src >= window_start_idx) & (times_src < pred_signal_sample))
                     x_src_window_times = (pred_signal_sample - PRED_TIME_SAMPLES) - times_src[indices].reshape(-1,1) # add time difference index
                     input_src_array = np.concatenate((input_src[indices], x_src_window_times.reshape(-1,1)), axis=1)[-training_parameters['max_sequence_length']:,:]
@@ -482,7 +450,12 @@ if __name__ == "__main__":
             else:
                 tgt_samples_left -= hop_size 
 
-            time.sleep(update_interval_s)
+
+            time_end = time.time()
+            # print(time_end-time_start)
+            # print(update_interval_s)
+
+            time.sleep(max(0, update_interval_s - (time_end-time_start)))
 
     except KeyboardInterrupt:
         graph.stop_recording()
@@ -493,7 +466,7 @@ if __name__ == "__main__":
         columns.append('pitch')
         columns.append('event_duration')
         df_src = pd.DataFrame(src_past_events, columns=columns)
-        df_src['event_start'] = src_past_events_starttimes
+        df_src['event_start'] = np.array(src_past_events_starttimes) + 0.012 * sr
         df_src.to_csv(f"{save_dir}/src_events.csv")
 
         columns = [f'latent-{j}' for j in range(N_latents_tgt)]
@@ -502,11 +475,11 @@ if __name__ == "__main__":
         columns.append('pitch')
         columns.append('event_duration')
         df_tgt = pd.DataFrame(tgt_past_events, columns=columns)
-        df_tgt['event_start'] = tgt_past_events_starttimes
+        df_tgt['event_start'] = np.array(tgt_past_events_starttimes) + 0.012 * sr
         df_tgt.to_csv(f"{save_dir}/tgt_events.csv")
 
         # Load stereo file (mono=False keeps both channels)
-        signal, sr = librosa.load(f'{save_dir}/performance.wav', mono=False)
+        signal, _ = librosa.load(f'{save_dir}/performance.wav', mono=False)
         import soundfile as sf
         sf.write(f'{save_dir}/performance_src.wav', signal[1], sr)
         sf.write(f'{save_dir}/performance_tgt.wav', signal[0], sr)

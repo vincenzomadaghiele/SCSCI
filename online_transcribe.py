@@ -37,11 +37,11 @@ if __name__ == '__main__':
     src_track_name = 'guitar1'
     SYNTH_NAME = 'TimbreTheremin'
     transformer_name = '1786739157-transformerDiscreteT2V'
-    song_name = 'recording3'
+    song_name = 'recording7'
 
     # LOAD AUDIO FILE
     src_audio_filepath = f'corpus/{corpus_name}/{song_name}/{src_track_name}.wav'
-    src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
+    # src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
 
     # LOAD VAE FOR SRC ENCODING
     corpus_path = f'corpus/{corpus_name}'
@@ -56,10 +56,9 @@ if __name__ == '__main__':
     VAE_model.load_state_dict(torch.load(VAE_model_name, weights_only=True))
     VAE_model.eval()
 
-    src_signal = adjustAmplitude(src_signal, FFT_window, hop_size)
-    onsets_samples = detectOnsets(src_signal, sr, min_event_duration_samples=min_event_duration_samples)
-    print(onsets_samples)
-    signal_max = src_signal.max()
+    # src_signal = adjustAmplitude(src_signal, FFT_window, hop_size)
+    # onsets_samples = detectOnsets(src_signal, sr, min_event_duration_samples=min_event_duration_samples)
+    # print(onsets_samples)
 
     # fig, ax = plt.subplots(1, figsize=(8, 3))
     # librosa.display.waveshow(y=src_signal, sr=sr, color="black", axis='time', ax=ax, alpha=0.2)
@@ -116,7 +115,7 @@ if __name__ == '__main__':
         return features
 
     src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
-    src_signal = adjustAmplitude(src_signal, FFT_window, hop_size)
+    # src_signal = adjustAmplitude(src_signal, FFT_window, hop_size)
     src_signal = src_signal.reshape(-1)
     tot_duration = src_signal.shape[0]
     
@@ -129,12 +128,16 @@ if __name__ == '__main__':
     prev_onset_position = 0
     for i in range(FFT_window, tot_duration, hop_size):
         signal = src_signal[i-FFT_window:i]
-        # rms = librosa.feature.rms(y=signal, frame_length=FFT_window, hop_length=hop_size)[0]
-        # if rms.mean() > silence_threshold / 2:
-        #     signal = adjustAmplitude(signal, FFT_window, hop_size)
-        # else: 
-        #     signal = np.zeros_like(signal)
-        onsets_samples = detectOnsets(signal, sr, min_event_duration_samples=min_event_duration_samples)
+
+        rms = librosa.feature.rms(y=signal, frame_length=FFT_window, hop_length=hop_size)[0]
+        if rms.mean() > silence_threshold / 2:
+            adjusted_signal = adjustAmplitude(signal, FFT_window, hop_size)
+        else: 
+            adjusted_signal = np.zeros_like(signal)
+
+        onsets_samples = detectOnsets(adjusted_signal, sr, min_event_duration_samples=min_event_duration_samples)
+        # onsetDetector = OnsetDetection(sr=sr)
+        # onsets_samples = onsetDetector(signal.reshape(1,-1))
 
         # check if onset already found in previous windows
         alreadyFound = False
@@ -151,6 +154,13 @@ if __name__ == '__main__':
 
         event_samples = np.concatenate((event_samples, signal[-hop_size:].reshape(-1)))
         if newOnsets:
+            # fig, ax = plt.subplots(1, figsize=(6, 3))
+            # ax.plot(event_samples)
+            # ax.set_ylim([-1,1])
+            # ax.axvline(event_samples.shape[0] + newOnsets[0]-FFT_window, -1, 1, color='red', ls='--')
+            # plt.show()
+            # plt.close(fig)
+
             # event before onset
             event = event_samples[:newOnsets[0]-FFT_window]
 
@@ -257,11 +267,31 @@ if __name__ == '__main__':
 
     src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
     src_signal = adjustAmplitude(src_signal, FFT_window, hop_size)
-    fig, ax = plt.subplots(2, figsize=(8, 6))
-    librosa.display.waveshow(y=src_signal, sr=sr, color="black", axis='time', ax=ax[0], alpha=0.2)
+    onsets_samples = detectOnsets(src_signal, sr, min_event_duration_samples=min_event_duration_samples)
+
+    # fig, ax = plt.subplots(1, figsize=(8, 3))
+    # # librosa.display.waveshow(y=src_signal, sr=sr, color="black", axis='time', ax=ax[0], alpha=0.2)
+    # # librosa.display.waveshow(y=np.concatenate(tot_events), sr=sr, color="black", axis='time', ax=ax[1], alpha=0.2)
+    # ax.plot(src_signal, alpha = 0.2)
+    # ax.plot(np.concatenate(tot_events), alpha = 0.2)
+    # ax.set_ylim([-1,1])
+    # # for i in range(len(tot_event_start_samples)):
+    # #     ax.axvline(tot_event_start_samples[i] / sr,-1,1, color='red', ls='--')
+    # plt.show()
+    # plt.close(fig)
+
+    fig, ax = plt.subplots(2, figsize=(10, 4))
+    # librosa.display.waveshow(y=src_signal, sr=sr, color="black", axis='time', ax=ax[0], alpha=0.2)
     # librosa.display.waveshow(y=np.concatenate(tot_events), sr=sr, color="black", axis='time', ax=ax[1], alpha=0.2)
-    ax[1].plot(np.concatenate(tot_events))
+
+    ax[0].plot(src_signal, alpha=0.5, color="black")
+    ax[1].plot(src_signal, alpha=0.5, color="black")
+    ax[1].plot(np.concatenate(tot_events), alpha=0.5, color="orange")
+    for i in range(len(onsets_samples)):
+        ax[0].axvline(onsets_samples[i], -1, 1, color='red', ls='--', lw=0.1)
     for i in range(len(tot_event_start_samples)):
-        ax[0].axvline(tot_event_start_samples[i] / sr,-1,1, color='red', ls='--')
+        ax[1].axvline(tot_event_start_samples[i], -1, 1, color='red', ls='--', lw=0.1)
+    ax[0].set_ylim([-1,1])
+    ax[1].set_ylim([-1,1])
     plt.show()
     plt.close(fig)

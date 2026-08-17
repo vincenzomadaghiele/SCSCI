@@ -202,7 +202,7 @@ def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sampl
 
 	plot_feature_src = 'pitch'
 	plot_df_src[plot_feature_src] = 2*((plot_df_src[plot_feature_src] - plot_df_src[plot_feature_src].min())/(plot_df_src[plot_feature_src].max() - plot_df_src[plot_feature_src].min())) - 1
-	plot_df_src = plot_df_src[plot_df_src['event_start'] > sample_start]
+	plot_df_src = plot_df_src[plot_df_src['event_start'] >= sample_start]
 	if sample_duration_s and (sample_start+sample_duration) < signal.shape[0]:
 		plot_df_src = plot_df_src[plot_df_src['event_start'] < sample_start+sample_duration]
 	plot_df_src['event_start'] = plot_df_src['event_start'] - sample_start
@@ -257,7 +257,7 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	plot_df_src['event_start'] = plot_df_src['event_start'].astype(float)
 	plot_df_src['event_duration'] = plot_df_src['event_duration'].astype(float)
 	plot_df_src[plot_feature_src] = 2*((plot_df_src[plot_feature_src] - plot_df_src[plot_feature_src].min())/(plot_df_src[plot_feature_src].max() - plot_df_src[plot_feature_src].min())) - 1
-	plot_df_src = plot_df_src[plot_df_src['event_start'] > sample_start]
+	plot_df_src = plot_df_src[plot_df_src['event_start'] >= sample_start]
 	if sample_duration_s and (sample_start+sample_duration) < signal_src.shape[0]:
 		plot_df_src = plot_df_src[plot_df_src['event_start'] < sample_start+sample_duration]
 	plot_df_src['event_start'] = plot_df_src['event_start'] - sample_start
@@ -285,7 +285,7 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	plot_df_tgt['event_start'] = plot_df_tgt['event_start'].astype(float)
 	plot_df_tgt['event_duration'] = plot_df_tgt['event_duration'].astype(float)
 	plot_df_tgt[plot_feature_tgt] = 2*((plot_df_tgt[plot_feature_tgt] - plot_df_tgt[plot_feature_tgt].min())/(plot_df_tgt[plot_feature_tgt].max() - plot_df_tgt[plot_feature_tgt].min())) - 1
-	plot_df_tgt = plot_df_tgt[plot_df_tgt['event_start'] > sample_start]
+	plot_df_tgt = plot_df_tgt[plot_df_tgt['event_start'] >= sample_start]
 	if sample_duration_s and (sample_start+sample_duration) < signal_tgt.shape[0]:
 		plot_df_tgt = plot_df_tgt[plot_df_tgt['event_start'] < sample_start+sample_duration]
 	plot_df_tgt['event_start'] = plot_df_tgt['event_start'] - sample_start
