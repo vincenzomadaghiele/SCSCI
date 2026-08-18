@@ -5,11 +5,10 @@ from signalflow import *
 import numpy as np
 import soundfile as sf
 import matplotlib.pyplot as plt
-from synth.patches.benjolin import Benjolin
-from synth.patches.granular import Granular
-from synth.patches.snare import Snare
-# from synth.patches.theremin import ADSRTheremin
-from synth.patches.timbreTheremin import TimbreTheremin
+from patches.benjolin import Benjolin
+from patches.granular import Granular
+from patches.snare import Snare
+from patches.timbreTheremin import TimbreTheremin
 
 # from CONSTANTS import *
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -35,13 +34,13 @@ class Synth:
             self.synth = Benjolin(self.graph) 
         elif self.synth_name == 'Granular':
             import librosa
-            sample_path = "./synth/patches/samples/tibetan-ball.wav"
+            sample_path = "./patches/samples/tibetan-ball.wav"
             sample, _ = librosa.load(sample_path, sr=self.graph.sample_rate, mono=True)
             pitch = librosa.yin(sample, fmin=200, fmax=self.graph.sample_rate/2, sr=self.graph.sample_rate, 
                                 frame_length=self.config.output_buffer_size*2, hop_length=self.config.output_buffer_size)
             pitch = [p for p in pitch.tolist() if p != self.graph.sample_rate]
-            self.base_pitch_hz = np.array(pitch).mean()
-            self.synth = Granular(self.graph, self.base_pitch_hz) 
+            self.base_pitch_hz = float(np.array(pitch).mean())
+            self.synth = Granular(sample_path, self.base_pitch_hz) 
         elif self.synth_name == 'Snare':
             self.synth = Snare() 
         elif self.synth_name == 'TimbreTheremin':

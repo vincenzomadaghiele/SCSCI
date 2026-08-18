@@ -397,7 +397,6 @@ if __name__ == '__main__':
     writer.flush()
     writer.close()
 
-
     # load best model weights
     evaluation_metrics = {}
     model_load_path = f'{logdir}/best_model.pth'
