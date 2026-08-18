@@ -72,19 +72,17 @@ def validationLoop(model, val_dataloader, loss_fn, opt, device, PAD_TOKEN):
 
 if __name__ == '__main__': 
 
-    # device 
-    DEVICE = torch.device("cpu")
+    # find device
+    device = torch.device("cpu")
     if torch.cuda.is_available():
-        DEVICE = torch.device("cuda")
+        device = torch.device("cuda")
     elif torch.backends.mps.is_available():
-        DEVICE = torch.device("mps")
+        device = torch.device("mps")
 
     corpus_name = 'guitar-duo'
     corpus_path = f'corpus/{corpus_name}'
     src_track_name = 'guitar1'
     tgt_track_name = 'guitar2'
-    N_latents_src = 8
-    N_latents_tgt = 2
     SYNTH_NAME = 'TimbreTheremin'
 
     # TRAIN SEQ2SEQ ON LATENTS
@@ -110,6 +108,8 @@ if __name__ == '__main__':
     training_parameters['epochs'] = 4000
     training_parameters['seed'] = 666
     training_parameters['use_timbre'] = True
+    training_parameters['N_latents_src'] = 8
+    training_parameters['N_latents_tgt'] = 2
     model_load_path = None
 
     random.seed(training_parameters['seed'])
@@ -117,11 +117,11 @@ if __name__ == '__main__':
     np.random.seed(training_parameters['seed'])
 
     if training_parameters['use_timbre']:
-        features_source = [f'latent-{j}' for j in range(N_latents_src)]
+        features_source = [f'latent-{j}' for j in range(training_parameters['N_latents_src'])]
         features_source.append('rms')
         features_source.append('pitch')
         features_source.append('event_duration')
-        features_target = [f'latent-{j}' for j in range(N_latents_tgt)]
+        features_target = [f'latent-{j}' for j in range(training_parameters['N_latents_tgt'])]
         features_target.append('rms')
         features_target.append('pitch')
         features_target.append('event_duration')
@@ -229,8 +229,8 @@ if __name__ == '__main__':
     pitchIndexTgt = features_target.index("pitch")
     durationIndexSrc = features_source.index("event_duration")
     durationIndexTgt = features_target.index("event_duration")
-    latentIndexSrc = [features_source.index(f"latents-{j}") for j in range(N_latents_src)]
-    latentIndexTgt = [features_source.index(f"latents-{j}") for j in range(N_latents_tgt)]
+    latentIndexSrc = [features_source.index(f"latents-{j}") for j in range(training_parameters['N_latents_src'])]
+    latentIndexTgt = [features_source.index(f"latents-{j}") for j in range(training_parameters['N_latents_tgt'])]
     new_data = []
     for datum in data:
         if datum[0].shape[0] > 0 and datum[1].shape[0] > 0:
@@ -311,7 +311,6 @@ if __name__ == '__main__':
             new_data.append([x_src, x_tgt, datum[2]])
     data = new_data
 
-
     # PAD SEQUENCES
     PAD_TOKEN = training_parameters['pad_token']
     new_data = []
@@ -345,13 +344,6 @@ if __name__ == '__main__':
     train_dataloader = batchify(train_data, batch_size)
     val_dataloader = batchify(val_data, batch_size)
     test_dataloader = batchify(test_data, batch_size)
-
-    # find device
-    device = torch.device("cpu")
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
 
     # create model
     model = TransformerDiscreteT2V(

@@ -1,24 +1,21 @@
-import torch
-from torchvision import transforms
-from flow_utils.transforms import LogTransform, NormalizeTensor
-
 import os
 import json
 import librosa
 import numpy as np
-import matplotlib.pyplot as plt
 import soundfile as sf
-
-import json
-from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from CONSTANTS import *
-from corpus.extract_events import extractEvents
-from synth.synths import Synth
+import torch
+from torchvision import transforms
+from flow_utils.transforms import LogTransform, NormalizeTensor
 
+from CONSTANTS import *
+from synth.synths import Synth
 from VAE_train import Encoder, Decoder, Model
+from corpus.extract_events import extractEvents
 
 
 def makeCrownWindow(size):
@@ -59,53 +56,138 @@ def melToFlowLatents(mels, flow_model, mean, var, num_MELS=64, melspec_size=80):
         predicted_parameters = flow_model.regression_model(z_tilde) # parameters
     return z_tilde[0].detach().cpu().numpy(), predicted_parameters[0].detach().cpu().numpy()
 
+def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var):
+    events = extractEvents(signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
+    # COMPUTE LATENTS
+    VAE_latents, flow_latents = [], []
+    original_reconstruct = np.zeros_like(signal)
+    resynthesized_reconstruct = np.zeros_like(signal)
+    for event in events:
+        if event['rms'] != 0:
+            # COMPUTE VAE LATENTS
+            event_latents = melToVAElatents(event['mel'], VAE_model)
+            VAE_latents.append(event_latents)
+            # COMPUTE FLOW LATENTS
+            z_tilde, predicted_parameters = melToFlowLatents(event['mel'], flow_model, flow_mean, flow_var)
+            flow_latents.append(z_tilde)
+            # RE-SYNTHESIZE SOUND EVENT
+            synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
+            synth.setParameters(timbre_param_names, predicted_parameters.tolist())
+            if frequency_param_name in param_names:
+                synth.setParameters([frequency_param_name], [event['pitch']])
+            synth.setParameters([gain_param_name], [float(np.clip(event['rms']*5, 0, 1))])
+            synth.setParameters(envelope_param_names, [0.3, 0.3, 0.2, 0.1])
+            synthesized_event = synth.forward(event['event_duration'] / sr) 
+            synth.close()
+            if synthesized_event.shape[0] > event['event_duration']:
+                event['resynthesized'] = synthesized_event[:event['event_duration']]
+            else:
+                newevent = np.zeros(event['event_duration'])
+                newevent[:synthesized_event.shape[0]] = synthesized_event
+                event['resynthesized'] = newevent
+            # RECOMBINE INTO FILE WITH EVENT STARTS
+            original_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = signal[event['event_start']:event['event_start']+event['event_duration']]
+            resynthesized_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = event['resynthesized'] * makeCrownWindow(event['event_duration'])
+    return flow_latents, VAE_latents, original_reconstruct, resynthesized_reconstruct
+
+def plotDualWaveform(original_reconstruct, resynthesized_reconstruct, SAVE_FILEPATH):
+    fig, ax = plt.subplots(2, figsize=(16, 6))
+    librosa.display.waveshow(y=original_reconstruct, sr=sr, color="black", axis='time', ax=ax[0], alpha=0.2)
+    librosa.display.waveshow(y=resynthesized_reconstruct, sr=sr, color="black", axis='time', ax=ax[1], alpha=0.2)
+    ax[0].set_title('original')
+    ax[1].set_title('resynthesized')
+    ax[0].set_xticks([])
+    ax[0].set_xlabel('')
+    ax[1].set_xlabel('time')
+    ax[0].set_ylim([-1,1])
+    ax[1].set_ylim([-1,1])
+    fig.savefig(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.png')
+
+def plotFlowTimbre(full_flow_latents, flow_latents_path, SAVE_FILEPATH):
+    # PLOT PATH ON THE FLOW TIMBRE SPACE
+    scaler = StandardScaler()
+    X = scaler.fit_transform(full_flow_latents)
+    if X.shape[1] > 2:
+        pca = PCA(n_components=3)
+        X_PCA = pca.fit_transform(X)
+        plot_scaler = StandardScaler()
+        X_PCA_scaled = plot_scaler.fit_transform(X_PCA)
+    else:
+        X_PCA_scaled = X.copy()
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.scatter(X_PCA_scaled[:,0], X_PCA_scaled[:,1], s=1)
+    path_latents = np.array(flow_latents_path)
+    if len(path_latents.shape) == 1:
+        path_latents = path_latents.reshape(1, -1)
+    if path_latents.shape[0] > 0 and path_latents.shape[1] > 0:
+        if X.shape[1] > 2:
+            path_latents_scaled = scaler.transform(path_latents)
+            path_latents_PCA = pca.transform(path_latents_scaled)
+            path_latents_plot = plot_scaler.transform(path_latents_PCA)
+        else:
+            path_latents_plot = path_latents
+        ax.scatter(path_latents_plot[:,0], path_latents_plot[:,1], s=5, c='r')
+        ax.plot(path_latents_plot[:,0], path_latents_plot[:,1], color='r', alpha=0.7, linestyle='--')
+    ax.set_title("flow latent space")
+    ax.set_xlabel('PCA 1')
+    ax.set_ylabel('PCA 2')
+    plt.savefig(f'{SAVE_FILEPATH}/2D_PCA_flow.png')
+    plt.close(fig)
+
+def plotVAETimbre(full_VAE_latents, VAE_latents_path, SAVE_FILEPATH):
+    scaler = StandardScaler()
+    X = scaler.fit_transform(full_VAE_latents)
+    pca = PCA(n_components=3)
+    X_PCA = pca.fit_transform(X)
+    plot_scaler = StandardScaler()
+    X_PCA_scaled = plot_scaler.fit_transform(X_PCA)
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.scatter(X_PCA_scaled[:,0], X_PCA_scaled[:,1], s=1)
+    path_latents = np.array(VAE_latents_path)
+    if len(path_latents.shape) == 1:
+        path_latents = path_latents.reshape(1, -1)
+    if path_latents.shape[0] > 0 and path_latents.shape[1] > 0:
+        path_latents_scaled = scaler.transform(path_latents)
+        path_latents_PCA = pca.transform(path_latents_scaled)
+        path_latents_plot = plot_scaler.transform(path_latents_PCA)
+        ax.scatter(path_latents_plot[:,0], path_latents_plot[:,1], s=5, c='r')
+        plt.plot(path_latents_plot[:,0], path_latents_plot[:,1], color='r', alpha=0.7, linestyle='--')
+    ax.set_title("VAE latent space")
+    ax.set_xlabel('PCA 1')
+    ax.set_ylabel('PCA 2')
+    plt.savefig(f'{SAVE_FILEPATH}/2D_PCA_VAE.png')
+    plt.close(fig)
+
 
 if __name__ == '__main__': 
 
     # save models by synth
     SYNTH_NAME = 'TimbreTheremin'
+    corpus_name = 'guitar-duo'
+    song_name = 'recording5'
+    tgt_track_name = 'guitar2'
 
     # LOAD FLOW MODEL
     device = torch.device('cpu')
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
-    # model_name = 'vae_flow_mel_mse_0_gated_cnn_maf_flow_post_maf_3'
-    model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=device).to(device)
-    model.eval()
-
-    # LOAD AUDIO TRACK
-    corpus_name = 'guitar-duo'
-    song_name = 'recording5'
-    src_track_name = 'guitar1'
-    tgt_track_name = 'guitar2'
-    filepath = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}.wav'
-    signal, _ = librosa.load(filepath, sr=sr, mono=True)
-    events = extractEvents(signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
-
-    # LOAD FLOW MODEL
-    num_MELS, melspec_size = 64, 80
-    RECORDING_TIME = int(melspec_size * FFT_window / sr)
-    synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
-    param_names = synth.getInputs()
-    N_params = len(param_names)
+    flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=device).to(device)
+    flow_model.eval()
     data_stats_path = f'./synth/datasets/{SYNTH_NAME}/means.json'
     with open(f'./synth/datasets/{SYNTH_NAME}/means.json') as f:
         d = json.load(f)
-        mean = d['mel']
+        flow_mean = d['mel']
     with open(f'./synth/datasets/{SYNTH_NAME}/vars.json') as f:
         d = json.load(f)
-        var = d['mel']
+        flow_var = d['mel']
 
-    # THESE ARE THE SAME FOR ALL SYNTHS
-    frequency_param_name = "frequency"
-    gain_param_name = "gain"
-    gate_param_name = "gate"
-    envelope_param_names = ['A','D','S','R']
-    # THESE CAN CHANGE AMONG SYNTHS
-    non_timbre_params_names = [frequency_param_name, gain_param_name, gate_param_name]
-    non_timbre_params_names += envelope_param_names
+    # LOAD SYNTH
+    RECORDING_TIME = int(melspec_size_flow * FFT_window / sr)
+    synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
+    param_names = synth.getInputs()
     timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
-
+    synth.close()
 
     # LOAD VAE
     corpus_path = f'corpus/{corpus_name}'
@@ -120,120 +202,21 @@ if __name__ == '__main__':
     VAE_model.load_state_dict(torch.load(VAE_model_name, weights_only=True))
     VAE_model.eval()
 
-    # COMPUTE LATENTS
-    VAE_latents = []
-    flow_latents = []
-    event_durations = []
-    event_starts = []
-    original_reconstruct = np.zeros_like(signal)
-    resynthesized_reconstruct = np.zeros_like(signal)
-    for event in events:
-        event_durations.append(event['event_duration'])
-        event_starts.append(event['event_start'])
-        if event['rms'] != 0:
-            mels = event['mel']
-            duration = event['event_duration']
-            rms = event['rms']
-            pitch = event['pitch']
-            # COMPUTE VAE LATENTS
-            event_latents = melToVAElatents(mels, VAE_model)
-            VAE_latents.append(event_latents)
-            # COMPUTE FLOW LATENTS
-            z_tilde, predicted_parameters = melToFlowLatents(mels, model, mean, var)
-            flow_latents.append(z_tilde)
-            # RE-SYNTHESIZE SOUND EVENT
-            print(duration / sr)
-            print(pitch)
-            print(rms)
-            predicted_parameters = predicted_parameters.tolist()
-            synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
-            synth.setParameters(timbre_param_names, predicted_parameters)
-            synth.setParameters([frequency_param_name], [pitch])
-            synth.setParameters([gain_param_name], [float(np.clip(rms*5, 0, 1))])
-            synth.setParameters(envelope_param_names, [0.3, 0.3, 0.2, 0.1])
-            synthesized_event = synth.forward(duration / sr) 
-            synth.close()
-            if synthesized_event.shape[0] > event['event_duration']:
-                event['resynthesized'] = synthesized_event[:event['event_duration']]
-            else:
-                newevent = np.zeros(event['event_duration'])
-                newevent[:synthesized_event.shape[0]] = synthesized_event
-                event['resynthesized'] = newevent
-            # RECOMBINE INTO FILE WITH EVENT STARTS
-            original_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = signal[event['event_start']:event['event_start']+event['event_duration']]
-            resynthesized_reconstruct[event['event_start']:event['event_start']+event['event_duration']] = event['resynthesized'] * makeCrownWindow(event['event_duration'])
+    # RESYNTHESIZE FILE
+    filepath = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}.wav'
+    signal, _ = librosa.load(filepath, sr=sr, mono=True)
+    flow_latents, VAE_latents, original_reconstruct, resynthesized_reconstruct = resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var)
 
-        # else:
-        #     flow_latents.append('R')
-        #     VAE_latents.append('R')
-
-    
-    # # SAVE AUDIOFILE
-    SAVE_FILEPATH = f'./corpus/{corpus_name}/{song_name}/resynthesized'
+    # SAVE AUDIOFILE
+    SAVE_FILEPATH = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}_{SYNTH_NAME}'
     os.makedirs(SAVE_FILEPATH, exist_ok=True)
     sf.write(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.wav', resynthesized_reconstruct, sr, subtype='PCM_24')
 
     # MAKE DUAL FIGURE
-    fig, ax = plt.subplots(2, figsize=(16, 6))
-    librosa.display.waveshow(y=original_reconstruct, sr=sr, color="black", axis='time', ax=ax[0], alpha=0.2)
-    librosa.display.waveshow(y=resynthesized_reconstruct, sr=sr, color="black", axis='time', ax=ax[1], alpha=0.2)
-    ax[0].set_title('original')
-    ax[1].set_title('resynthesized')
-    ax[0].set_xticks([])
-    ax[0].set_xlabel('')
-    ax[1].set_xlabel('time')
-    ax[0].set_ylim([-1,1])
-    ax[1].set_ylim([-1,1])
-    fig.savefig(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.png')
-
-    # PLOT PATH ON THE FLOW TIMBRE SPACE
+    plotDualWaveform(original_reconstruct, resynthesized_reconstruct, SAVE_FILEPATH)
     X = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{model_name}/latents.npy')
-    scaler = StandardScaler()
-    X = scaler.fit_transform(X)
-    pca = PCA(n_components=3)
-    X_PCA = pca.fit_transform(X)
-    plot_scaler = StandardScaler()
-    X_PCA_scaled = plot_scaler.fit_transform(X_PCA)
-
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.scatter(X_PCA_scaled[:,0], X_PCA_scaled[:,1], s=1)
-    # for path in flow_latents:
-    path_latents = np.array(flow_latents)
-    if len(path_latents.shape) == 1:
-        path_latents = path_latents.reshape(1, -1)
-    if path_latents.shape[0] > 0 and path_latents.shape[1] > 0:
-        path_latents_scaled = scaler.transform(path_latents)
-        path_latents_PCA = pca.transform(path_latents_scaled)
-        path_latents_plot = plot_scaler.transform(path_latents_PCA)
-        ax.scatter(path_latents_plot[:,0], path_latents_plot[:,1], s=5, c='r')
-        plt.plot(path_latents_plot[:,0], path_latents_plot[:,1], color='r', alpha=0.7, linestyle='--')
-    ax.set_title("flow latent space")
-    ax.set_xlabel('PCA 1')
-    ax.set_ylabel('PCA 2')
-    plt.savefig(f'{SAVE_FILEPATH}/2D_PCA_flow.png')
+    plotFlowTimbre(X, flow_latents, SAVE_FILEPATH)
 
     # PLOT PATH ON THE VAE TIMBRE SPACE
     X = np.load(f'./corpus/{corpus_name}/trained_VAE/latents.npy')
-    scaler = StandardScaler()
-    X = scaler.fit_transform(X)
-    pca = PCA(n_components=3)
-    X_PCA = pca.fit_transform(X)
-    plot_scaler = StandardScaler()
-    X_PCA_scaled = plot_scaler.fit_transform(X_PCA)
-
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.scatter(X_PCA_scaled[:,0], X_PCA_scaled[:,1], s=1)
-    # for path in flow_latents:
-    path_latents = np.array(VAE_latents)
-    if len(path_latents.shape) == 1:
-        path_latents = path_latents.reshape(1, -1)
-    if path_latents.shape[0] > 0 and path_latents.shape[1] > 0:
-        path_latents_scaled = scaler.transform(path_latents)
-        path_latents_PCA = pca.transform(path_latents_scaled)
-        path_latents_plot = plot_scaler.transform(path_latents_PCA)
-        ax.scatter(path_latents_plot[:,0], path_latents_plot[:,1], s=5, c='r')
-        plt.plot(path_latents_plot[:,0], path_latents_plot[:,1], color='r', alpha=0.7, linestyle='--')
-    ax.set_title("VAE latent space")
-    ax.set_xlabel('PCA 1')
-    ax.set_ylabel('PCA 2')
-    plt.savefig(f'{SAVE_FILEPATH}/2D_PCA_VAE.png')
+    plotVAETimbre(X, VAE_latents, SAVE_FILEPATH)

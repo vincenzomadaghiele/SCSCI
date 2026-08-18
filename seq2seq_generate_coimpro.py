@@ -33,7 +33,6 @@ if __name__ == '__main__':
 
     # device 
     DEVICE = torch.device("cpu")
-
     corpus_name = 'guitar-duo'
     src_track_name = 'guitar1'
     SYNTH_NAME = 'TimbreTheremin'
@@ -41,25 +40,25 @@ if __name__ == '__main__':
     song_name = 'recording2'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
+    # LOAD TRANSFORMER
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
     model_load_path = f'{model_dir}/best_model.pth'
-
-    N_latents_src = 8
-    N_latents_tgt = 2
-    features_source = [f'latent-{j}' for j in range(N_latents_src)]
-    features_source.append('rms')
-    features_source.append('pitch')
-    features_source.append('event_duration')
-    features_target = [f'latent-{j}' for j in range(N_latents_tgt)]
-    features_target.append('rms')
-    features_target.append('pitch')
-    features_target.append('event_duration')
-
-    # features_source = ['rms', 'pitch', 'event_duration']
-    # features_target = ['rms', 'pitch', 'event_duration']
-
+    if training_parameters['use_timbre']:
+        N_latents_tgt = training_parameters['N_latents_tgt']
+        features_source = [f'latent-{j}' for j in range(training_parameters['N_latents_src'])]
+        features_source.append('rms')
+        features_source.append('pitch')
+        features_source.append('event_duration')
+        features_target = [f'latent-{j}' for j in range(training_parameters['N_latents_tgt'])]
+        features_target.append('rms')
+        features_target.append('pitch')
+        features_target.append('event_duration')
+    else:
+        N_latents_tgt = 0
+        features_source = ['rms', 'pitch', 'event_duration']
+        features_target = ['rms', 'pitch', 'event_duration']
 
     # create model
     model = TransformerDiscreteT2V(
@@ -74,18 +73,13 @@ if __name__ == '__main__':
             dim_feedforward=training_parameters['dim_feedforward'], 
             dropout_p=training_parameters['dropout_p']
     ).to(DEVICE)
-
     model.load_state_dict(torch.load(model_load_path, weights_only=True))
     model.eval()
+    # LOAD MODEL UTILS
     src_scaler = joblib.load(f'{model_dir}/source_scaler.pkl')
     tgt_scaler = joblib.load(f'{model_dir}/target_scaler.pkl')
     src_time_scaler = joblib.load(f'{model_dir}/source_time_scaler.pkl')
     tgt_time_scaler = joblib.load(f'{model_dir}/target_time_scaler.pkl')
-
-    # LOAD AUDIO FILE
-    src_audio_filepath = f'corpus/{corpus_name}/{song_name}/{src_track_name}.wav'
-    src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
-    pred_signal = np.zeros(src_signal.shape[0])
 
     # LOAD VAE FOR SRC ENCODING
     corpus_path = f'corpus/{corpus_name}'
@@ -113,22 +107,16 @@ if __name__ == '__main__':
         d = json.load(f)
         var = d['mel']
 
-    # LOAD SYNTHESIZER
+    # LOAD SYNTH
     RECORDING_TIME = int(melspec_size_flow * FFT_window / sr)
     synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
     param_names = synth.getInputs()
-    N_params = len(param_names)
-    # THESE ARE THE SAME FOR ALL SYNTHS
-    frequency_param_name = "frequency"
-    gain_param_name = "gain"
-    gate_param_name = "gate"
-    envelope_param_names = ['A','D','S','R']
-    # THESE CAN CHANGE AMONG SYNTHS
-    non_timbre_params_names = [frequency_param_name, gain_param_name, gate_param_name]
-    non_timbre_params_names += envelope_param_names
     timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
 
-    # encode events
+    # LOAD AUDIO FILE
+    src_audio_filepath = f'corpus/{corpus_name}/{song_name}/{src_track_name}.wav'
+    src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
+    pred_signal = np.zeros(src_signal.shape[0])
     event_sequence = extractEvents(src_signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
 
     transform = transforms.Compose([transforms.Resize(image_size), transforms.CenterCrop(image_size)])
@@ -153,14 +141,13 @@ if __name__ == '__main__':
         event_latents.append(src_audio_filepath)
         src_events.append(event_latents)
     src_events = np.array(src_events)
-    columns = [f'latent-{j}' for j in range(N_latents_src)]
+    columns = [f'latent-{j}' for j in range(training_parameters['N_latents_src'])]
     columns.append('rms')
     columns.append('pitch')
     columns.append('event_duration')
     columns.append('event_start')
     columns.append('filename')
     signal_df = pd.DataFrame(src_events, columns=columns)
-
 
     # normalize for input
     input_src = signal_df[features_source].values.astype(float)
@@ -182,7 +169,6 @@ if __name__ == '__main__':
     # for stats
     inference_times = []
     model_inference_times = []
-    table_lookup_times = []
     sequence_update_times = []
     while pred_signal_sample < src_signal.shape[0]:
 
@@ -200,43 +186,21 @@ if __name__ == '__main__':
         input_src_array_norm = ones_src
         input_tgt_array_norm = ones_tgt
 
-        # fig, ax = plt.subplots(2)
-        # ax[0].plot(input_src_array_norm[:,0])
-        # ax[0].plot(input_src_array_norm[:,1])
-        # ax[0].plot(input_src_array_norm[:,2])
-        # ax[1].plot(input_tgt_array_norm[:,0])
-        # ax[1].plot(input_tgt_array_norm[:,1])
-        # ax[1].plot(input_tgt_array_norm[:,2])
-        # ax[0].set_ylim([-5,5])
-        # ax[1].set_ylim([-5,5])
-        # # c = ax[0].imshow(input_src_array_norm[:,:-1].T)
-        # # b = ax[1].imshow(input_tgt_array_norm[:,:-1].T)
-        # # fig.colorbar(c, ax=ax[0])
-        # # fig.colorbar(b, ax=ax[1])
-        # plt.show()
-
         input_src_array_norm = torch.tensor(input_src_array_norm.reshape(1, input_src_array_norm.shape[0], input_src_array_norm.shape[1])).type(torch.FloatTensor).to(DEVICE)
         input_tgt_array_norm = torch.tensor(input_tgt_array_norm.reshape(1, input_tgt_array_norm.shape[0], input_tgt_array_norm.shape[1])).type(torch.FloatTensor).to(DEVICE)
         start_model_time = time.time()
         with torch.no_grad():
             src_pad_mask = model.create_pad_mask(input_src_array_norm, pad_token=training_parameters['pad_token']).to(DEVICE).to(torch.bool)
             tgt_pad_mask = model.create_pad_mask(input_tgt_array_norm, pad_token=training_parameters['pad_token']).to(DEVICE).to(torch.bool)
-            # tgt_mask = model.get_tgt_mask(input_tgt_array_norm.size(1)).to(DEVICE)
-            # src_mask = model.transformer.generate_square_subsequent_mask(input_src_array_norm.size(1), device=DEVICE).to(torch.bool)
-            # tgt_mask = model.transformer.generate_square_subsequent_mask(input_tgt_array_norm.size(1), device=DEVICE).to(torch.bool)
-            y = model(input_src_array_norm, input_tgt_array_norm, #tgt_mask=tgt_mask, 
-                      src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0]).detach().cpu().numpy()
+            y = model(input_src_array_norm, input_tgt_array_norm, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0]).detach().cpu().numpy()
         end_model_time = time.time()
-        # y_denorm = tgt_scaler.inverse_transform(y.reshape(y.shape[0], y.shape[2]))
         y_pred = tgt_scaler.inverse_transform(y.reshape(1, -1)).reshape(-1)
-        # y_pred = y_denorm[-1,:]
-        # print(f'{pred_signal_sample}: {next_token}')
-        # N_latents_tgt = 0
         pred_latents = y_pred[:N_latents_tgt]
         pred_rms = y_pred[N_latents_tgt]
         pred_frequency = np.clip(y_pred[N_latents_tgt+1], 50, 11050)
         pred_duration = int(np.clip(y_pred[N_latents_tgt+2], 882, 88200))
 
+        # quantize pitch
         MIDI = int(69 + 12 * math.log2(pred_frequency/440))
         pred_frequency = 440 * 2**((MIDI - 69)/12) # tune to scale
 
@@ -246,10 +210,6 @@ if __name__ == '__main__':
         
         print(y.reshape(-1), y_pred)
 
-        # retreive sound segment
-        start_lookup_time = time.time()
-        # pred_duration = int(y_pred[-1])
-        # print(pred_rms)
         # detect rest
         if pred_rms < 0.0001:
             sound_segment = np.zeros(pred_duration)
@@ -269,10 +229,9 @@ if __name__ == '__main__':
             synth.setParameters(envelope_param_names, [0.3, 0.3, 0.2, 0.1])
             # synth.setParameters(timbre_param_names, [0.1, 0.1])
             synth.setParameters(timbre_param_names, predicted_parameters.tolist())
-            sound_segment = synth.forward((pred_duration - pred_duration/4) / sr) # add possibility of 'note off' to handle different durations synth.forward(duration)
+            sound_segment = synth.forward((pred_duration - pred_duration/4) / sr)
             sound_segment = sound_segment[:pred_duration]
         end_lookup_time = time.time()
-        # print(y_pred)
 
         # update model inputs at time of end of last predicted token
         tgt_past_events.append(y_pred)
@@ -284,7 +243,6 @@ if __name__ == '__main__':
             # compute concatenative synthesis
             crown_window = makeCrownWindow(int(sound_segment.shape[0]), fade_perc=0.01)
             pred_signal[int(pred_signal_sample):int(pred_signal_sample)+int(pred_duration)] = sound_segment * crown_window
-            # pred_signal[int(pred_signal_sample):int(pred_signal_sample)+int(pred_duration)] += sound_segment * crown_window
             pred_signal_sample += int(pred_duration)
 
             # COMPUTE NEXT WINDOW START
@@ -307,7 +265,6 @@ if __name__ == '__main__':
             end_inf_time = time.time()
             inference_times.append(end_inf_time-start_inf_time)
             model_inference_times.append(end_model_time-start_model_time)
-            table_lookup_times.append(end_lookup_time-start_lookup_time)
             sequence_update_times.append(end_sequpdate_time-start_sequpdate_time)
         else:
             break
@@ -315,7 +272,6 @@ if __name__ == '__main__':
     print()
     print(f'Mean total inference time: {np.array(inference_times).mean():.6f}')
     print(f'Mean model inference time: {np.array(model_inference_times).mean():.6f}')
-    print(f'Mean table lookup time: {np.array(table_lookup_times).mean():.6f}')
     print(f'Mean sequence update time: {np.array(sequence_update_times).mean():.6f}')
     print()
     print('Exporting...')
