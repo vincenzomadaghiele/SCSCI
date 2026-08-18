@@ -6,9 +6,9 @@ import torch.nn as nn
 import os.path
 import argparse
 import numpy as np
-from utils.data import load_dataset
-from utils.plot import compare_batch_detailed
-from models.loss import spectral_losses
+from flow_utils.data import load_dataset
+from flow_utils.plot import compare_batch_detailed
+from flow_models.loss import spectral_losses
 # Plotting
 import matplotlib
 import matplotlib.pyplot as plt

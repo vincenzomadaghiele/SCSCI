@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.distributions as distrib
-from models.vae.ae import AE
+from flow_models.vae.ae import AE
 
 class VAE(AE):
     

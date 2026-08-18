@@ -8,8 +8,8 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
-from utils.transforms import LogTransform, NormalizeTensor, NoiseGaussian
-from utils.plot import plot_batch, plot_batch_detailed
+from flow_utils.transforms import LogTransform, NormalizeTensor, NoiseGaussian
+from flow_utils.plot import plot_batch, plot_batch_detailed
 import librosa
 
 """

@@ -7,7 +7,7 @@ import torch.distributions as distributions
 from torch.distributions import MultivariateNormal
 import numpy as np
 # Flows library
-from models.flows.flow import NormalizingFlow
+from flow_models.flows.flow import NormalizingFlow
 
 class DisentanglingFlow(nn.Module):
     """

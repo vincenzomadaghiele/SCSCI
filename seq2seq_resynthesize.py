@@ -1,6 +1,6 @@
 import torch
 from torchvision import transforms
-from utils.transforms import LogTransform, NormalizeTensor
+from flow_utils.transforms import LogTransform, NormalizeTensor
 
 import os
 import json

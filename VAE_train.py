@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
-from utils.transforms import NormalizeTensor
+from flow_utils.transforms import NormalizeTensor
 
 
 class MelSpectrogramDataset(Dataset):

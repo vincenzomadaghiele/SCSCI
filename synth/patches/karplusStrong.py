@@ -34,7 +34,7 @@ class KarplusStrong(Patch):
         env = ADSREnvelope(A, D, S, R, gate=gate)
         player = noise * env
         output = SVFilter(player * 0.5 + feedback_reader, "low_pass", damping)
-        feedback_writer = FeedbackBufferWriter(feedback_buf, output * feedback, 1/frequency)
+        feedback_writer = FeedbackBufferWriter(feedback_buf, output * feedback, 1/frequency) # tuned
         graph.add_node(feedback_writer)
         out = output * gain
 
@@ -88,29 +88,3 @@ if __name__ == "__main__":
             voices[k].set_input("gate", 0)
             durations[k] = 0
         time.sleep(metro + random.random() * random_metro)
-
-
-
-    # feedback = 0.99
-    # note_interval = 0.125
-    # frequency = 200    
-
-    # feedback_buf = Buffer(1, 2048)
-    # feedback_reader = FeedbackBufferReader(feedback_buf)
-    # noise = WhiteNoise(frequency=0.0, min=-1.0, max=1.0)
-    # noise.set_seed(666)
-    # env = ADSREnvelope(0.001, 0.001, 0.001, 0.001)
-    # player = noise * env
-    # output = SVFilter(player * 0.5 + feedback_reader, "low_pass", 4000)
-    # feedback_writer = FeedbackBufferWriter(feedback_buf, output * feedback, 1/frequency)
-    # out = output + feedback_writer
-    # graph.play(out)
-
-    # while True:
-    #     graph.wait(note_interval)
-    #     env.set_input("gate", 1)
-    #     time.sleep(0.01)
-    #     env.set_input("gate", 0)
-    #     # env.trigger()
-    #     # random_frequency.trigger()
-

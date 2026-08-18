@@ -1,15 +1,14 @@
 import os
 import copy
 import librosa
-from torch.utils.data import Dataset, DataLoader
-from utils.data import AudioDataset, CompSynthesizerDataset
+from torch.utils.data import DataLoader
+from flow_utils.data import AudioDataset
 
 # make npz file with file['chars'] = None, file['params'] = params, file['audio'] = audio
 # (npz files in ./00_dataset/raw/*.npz)
 # data is a spectral dataset encoded by AudioDataset (npy files in ./00_dataset/mfcc/*.npy)
 # make new CompSynthesizerDataset and use it to train model
 # (maybe make dict with parameter names ?) --> we'll see if needed for or after training
-
 
 if __name__ == '__main__': 
 

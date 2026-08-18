@@ -6,8 +6,8 @@ import torch.nn.functional as F
 from torch.distributions import MultivariateNormal
 import numpy as np
 # Flows library
-from models.flows.flow import NormalizingFlow, Flow
-from models.flows.layers import GaussianDiag, sum_dims
+from flow_models.flows.flow import NormalizingFlow, Flow
+from flow_models.flows.layers import GaussianDiag, sum_dims
 
 
 class FlowMixture(nn.Module):

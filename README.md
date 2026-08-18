@@ -15,7 +15,7 @@ and outputs regression of:
 these are mapped:
 - RMS --> gain
 - pitch --> frequency
-- duration --> D of envelope
+- duration --> gate on/off
 - latents-timbre --> NF regressor --> timbre parameters
 
 SYNTHS provided:
@@ -34,8 +34,7 @@ TODO:
 5. workshops (process?)
 6. fine-tune (more than one model and change with MIDI or automatic?)
 
-UTILS:
-- to train flow:
+To train flow:
 ```
 python3 flow_train.py --path synth/datasets --dataset TimbreTheremin --data mel --model vae_flow --regressor flow_post --flow planar --epochs 200 --output synth/trained_flows/TimbreTheremin/ --start_regress 50
 ```

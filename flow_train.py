@@ -11,13 +11,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 # Internal imports
-from utils.data import load_dataset, get_external_sounds
-from models.vae.ae import AE, RegressionAE, DisentanglingAE
-from models.vae.vae import VAE
-from models.vae.wae import WAE
-from models.vae.vae_flow import VAEFlow
-from models.loss import multinomial_loss, multinomial_mse_loss
-from models.basic import GatedMLP, GatedCNN, construct_encoder_decoder, construct_flow, construct_regressor, construct_disentangle
+from flow_utils.data import load_dataset, get_external_sounds
+from flow_models.vae.ae import AE, RegressionAE, DisentanglingAE
+from flow_models.vae.vae import VAE
+from flow_models.vae.wae import WAE
+from flow_models.vae.vae_flow import VAEFlow
+from flow_models.loss import multinomial_loss, multinomial_mse_loss
+from flow_models.basic import GatedMLP, GatedCNN, construct_encoder_decoder, construct_flow, construct_regressor, construct_disentangle
 from flow_evaluate import evaluate_model
 
 # Define arguments

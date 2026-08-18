@@ -5,24 +5,24 @@ import numpy as np
 import torch.nn as nn
 from torch.distributions import MultivariateNormal
 # Model layers imports
-from models.layers import GatedDense, GatedConv2d, ResConv2d
-from models.layers import GatedConvTranspose2d, ResConvTranspose2d 
+from flow_models.layers import GatedDense, GatedConv2d, ResConv2d
+from flow_models.layers import GatedConvTranspose2d, ResConvTranspose2d 
 # Flows library imports
-from models.flows.coupling import MaskedCouplingFlow
-from models.flows.flow import NormalizingFlow
-from models.flows.iaf import IAFlow, ContextIAFlow, DDSF_IAFlow
-from models.flows.maf import MAFlow, ContextMAFlow
-from models.flows.naf import DeepSigmoidFlow, DeepDenseSigmoidFlow
-from models.flows.normalization import BatchNormFlow
-from models.flows.order import ReverseFlow, ShuffleFlow
-from models.flows.planar import PlanarFlow
-from models.flows.sylvester import TriangularSylvesterFlow
+from flow_models.flows.coupling import MaskedCouplingFlow
+from flow_models.flows.flow import NormalizingFlow
+from flow_models.flows.iaf import IAFlow, ContextIAFlow, DDSF_IAFlow
+from flow_models.flows.maf import MAFlow, ContextMAFlow
+from flow_models.flows.naf import DeepSigmoidFlow, DeepDenseSigmoidFlow
+from flow_models.flows.normalization import BatchNormFlow
+from flow_models.flows.order import ReverseFlow, ShuffleFlow
+from flow_models.flows.planar import PlanarFlow
+from flow_models.flows.sylvester import TriangularSylvesterFlow
 # Regressors import
-from models.regression import BayesianRegressor
-from models.regression import FlowTransform, FlowKL, FlowKLFull, FlowCDE
-from models.regression import FlowExternal, FlowPosterior, FlowDecoder
+from flow_models.regression import BayesianRegressor
+from flow_models.regression import FlowTransform, FlowKL, FlowKLFull, FlowCDE
+from flow_models.regression import FlowExternal, FlowPosterior, FlowDecoder
 # Disentangling import
-from models.disentangling import DisentanglingFlow
+from flow_models.disentangling import DisentanglingFlow
 
 def construct_encoder_decoder(in_size, enc_size, latent_size, hidden_size = 512, channels = 32, n_layers = 6, n_mlp = 2, type_ae = 'ae', type_mod='gated_cnn', args=None):
     """ Construct encoder and decoder layers for AE models """

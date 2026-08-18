@@ -20,7 +20,6 @@ from torch.utils.tensorboard import SummaryWriter
 from CONSTANTS import * 
 from transformer.transformerDiscreteT2V import TransformerDiscreteT2V
 
-
 def batchify(data, batch_size=16):
     # return batches of dim (batch_size, seq_length, num_feats)
     batches = []
@@ -45,16 +44,9 @@ def trainLoop(model, train_dataloader, loss_fn, opt, device, PAD_TOKEN):
         X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
         y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
         y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0],batch[2].shape[1])
-        # y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0], batch[2].shape[1])
-        # generate pad mask before t2v (t2v is non-linear and padding has to be applied before)
         src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device).to(torch.bool)
         tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device).to(torch.bool)
-        # tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
-        # src_mask = model.transformer.generate_square_subsequent_mask(X.size(1), device=device).to(torch.bool)
-        # tgt_mask = model.transformer.generate_square_subsequent_mask(y.size(1), device=device).to(torch.bool)
-        pred = model(X, y, 
-                    #  src_mask=src_mask, tgt_mask=tgt_mask, 
-                     src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
+        pred = model(X, y, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
         loss = loss_fn(pred, y_expected)
         opt.zero_grad()
         loss.backward()
@@ -70,17 +62,9 @@ def validationLoop(model, val_dataloader, loss_fn, opt, device, PAD_TOKEN):
             X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
             y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
             y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0], batch[2].shape[1])
-            # y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0], batch[2].shape[1])
-            # generate pad mask before t2v (t2v is non-linear and padding has to be applied before)
             src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device).to(torch.bool)
             tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device).to(torch.bool)
-            # tgt_mask = model.get_tgt_mask(y.size(1)).to(device)
-            # src_mask = model.transformer.generate_square_subsequent_mask(X.size(1), device=device).to(torch.bool)
-            # tgt_mask = model.transformer.generate_square_subsequent_mask(y.size(1), device=device).to(torch.bool)
-
-            pred = model(X, y, 
-                        #  src_mask=src_mask, tgt_mask=tgt_mask, 
-                         src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
+            pred = model(X, y, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
             loss = loss_fn(pred, y_expected)
             total_loss += loss.detach().item()
     return total_loss / len(val_dataloader)
@@ -99,7 +83,7 @@ if __name__ == '__main__':
     corpus_path = f'corpus/{corpus_name}'
     src_track_name = 'guitar1'
     tgt_track_name = 'guitar2'
-    latent_dim = 8
+    N_latents_src = 8
     N_latents_tgt = 2
     SYNTH_NAME = 'TimbreTheremin'
 
@@ -123,26 +107,27 @@ if __name__ == '__main__':
     training_parameters['pad_token'] = -1000
     training_parameters['loss_fn'] = 'MSE'
     training_parameters['learning_rate'] = 0.001
-    training_parameters['epochs'] = 2000
+    training_parameters['epochs'] = 4000
     training_parameters['seed'] = 666
+    training_parameters['use_timbre'] = True
     model_load_path = None
 
     random.seed(training_parameters['seed'])
     torch.manual_seed(training_parameters['seed'])
     np.random.seed(training_parameters['seed'])
 
-    features_source = [f'latent-{j}' for j in range(latent_dim)]
-    features_source.append('rms')
-    features_source.append('pitch')
-    features_source.append('event_duration')
-    features_target = [f'latent-{j}' for j in range(N_latents_tgt)]
-    features_target.append('rms')
-    features_target.append('pitch')
-    features_target.append('event_duration')
-
-    # features_source = ['rms', 'pitch', 'event_duration']
-    # features_target = ['rms', 'pitch', 'event_duration']
-
+    if training_parameters['use_timbre']:
+        features_source = [f'latent-{j}' for j in range(N_latents_src)]
+        features_source.append('rms')
+        features_source.append('pitch')
+        features_source.append('event_duration')
+        features_target = [f'latent-{j}' for j in range(N_latents_tgt)]
+        features_target.append('rms')
+        features_target.append('pitch')
+        features_target.append('event_duration')
+    else:
+        features_source = ['rms', 'pitch', 'event_duration']
+        features_target = ['rms', 'pitch', 'event_duration']
 
     # MAKE SAVE DIRECTORY
     today = date.today()
@@ -171,8 +156,6 @@ if __name__ == '__main__':
         if partial_src_df.shape[0] > 0 and partial_tgt_df.shape[0] > 0:
             src_signals_dfs.append(partial_src_df)
             tgt_signals_dfs.append(partial_tgt_df)
-
-    # print(source_corpus_df.head())
 
     # normalize source features
     src_features = source_corpus_df[features_source].values
@@ -236,15 +219,18 @@ if __name__ == '__main__':
     rmsTranspose = True
     pitchTranspose = True
     durationTranspose = True
+    latentsTranspose = False
     maskAugment = False
     randomSubstitute = True
-    NUM_AUGMENT = 15
+    NUM_AUGMENT = 20
     rmsIndexSrc = features_source.index("rms")
     rmsIndexTgt = features_target.index("rms")
     pitchIndexSrc = features_source.index("pitch")
     pitchIndexTgt = features_target.index("pitch")
     durationIndexSrc = features_source.index("event_duration")
     durationIndexTgt = features_target.index("event_duration")
+    latentIndexSrc = [features_source.index(f"latents-{j}") for j in range(N_latents_src)]
+    latentIndexTgt = [features_source.index(f"latents-{j}") for j in range(N_latents_tgt)]
     new_data = []
     for datum in data:
         if datum[0].shape[0] > 0 and datum[1].shape[0] > 0:
@@ -276,6 +262,14 @@ if __name__ == '__main__':
                     x_src[:,durationIndexSrc] = x_src[:,durationIndexSrc] + x_src[:,durationIndexSrc] * coefficient
                     x_tgt[:,durationIndexTgt] = x_tgt[:,durationIndexTgt] + x_tgt[:,durationIndexTgt] * coefficient
                     y_tgt[durationIndexTgt] = y_tgt[durationIndexTgt] + y_tgt[durationIndexTgt] * coefficient
+                if latentsTranspose:
+                    # increase or decrease durations by max 10 %
+                    LATENTS_TRANSP = 0.2
+                    coefficient = LATENTS_TRANSP * (np.random.rand(len(latentIndexSrc)) * 2 -1)
+                    x_src[:,latentIndexSrc] = x_src[:,latentIndexSrc] + x_src[:,latentIndexSrc] * coefficient
+                    coefficient = LATENTS_TRANSP * (np.random.rand(len(latentIndexTgt)) * 2 -1)
+                    x_tgt[:,latentIndexTgt] = x_tgt[:,latentIndexTgt] + x_tgt[:,latentIndexTgt] * coefficient
+                    y_tgt[latentIndexTgt] = y_tgt[latentIndexTgt] + y_tgt[latentIndexTgt] * coefficient
                 if maskAugment:
                     MASK_TOKEN = np.ones_like(x_src[0,:-1]) * -10
                     src_len, tgt_len = x_src.shape[0], x_tgt.shape[0]
@@ -289,6 +283,8 @@ if __name__ == '__main__':
                         x_tgt[random.randint(0, tgt_len), :-1] = x_tgt[random.randint(0, tgt_len), :-1]
                 new_data.append([x_src, x_tgt, y_tgt])
     data = new_data
+    # save non-augmented data for later testing
+
 
     # CUT SEQUENCE LENGTH
     MAX_SEQ_LEN = int(np.array(seq_lens).mean() + np.array(seq_lens).std())
@@ -410,9 +406,8 @@ if __name__ == '__main__':
     writer.close()
 
 
-    evaluation_metrics = {}
-
     # load best model weights
+    evaluation_metrics = {}
     model_load_path = f'{logdir}/best_model.pth'
     model.load_state_dict(torch.load(model_load_path, weights_only=True))
     train_loss = validationLoop(model, train_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
@@ -421,9 +416,9 @@ if __name__ == '__main__':
     evaluation_metrics['validation_MSE'] = validation_loss
     test_loss = validationLoop(model, test_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
     evaluation_metrics['test_MSE'] = test_loss
-
     with open(f'{logdir}/evaluation.json', 'w', encoding='utf-8') as f:
         json.dump(evaluation_metrics, f, ensure_ascii=False, indent=4)
 
-
     # generate coimpros offline
+
+    # test on ORIGINAL DATASET (not augmented one) and R2 score

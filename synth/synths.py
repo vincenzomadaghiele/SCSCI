@@ -34,13 +34,18 @@ class Synth:
         if self.synth_name == 'Benjolin':
             self.synth = Benjolin(self.graph) 
         elif self.synth_name == 'Granular':
-            self.synth = Granular() 
+            import librosa
+            sample_path = "./synth/patches/samples/tibetan-ball.wav"
+            sample, _ = librosa.load(sample_path, sr=self.graph.sample_rate, mono=True)
+            pitch = librosa.yin(sample, fmin=200, fmax=self.graph.sample_rate/2, sr=self.graph.sample_rate, 
+                                frame_length=self.config.output_buffer_size*2, hop_length=self.config.output_buffer_size)
+            pitch = [p for p in pitch.tolist() if p != self.graph.sample_rate]
+            self.base_pitch_hz = np.array(pitch).mean()
+            self.synth = Granular(self.graph, self.base_pitch_hz) 
         elif self.synth_name == 'Snare':
             self.synth = Snare() 
         elif self.synth_name == 'TimbreTheremin':
             self.synth = TimbreTheremin() 
-        else:
-            self.synth = ADSRTheremin() 
     def forward(self, event_duration=0.1):
         buffer_event = Buffer(1, int(self.graph.sample_rate * event_duration))
         buffer_decay = Buffer(1, int(self.graph.sample_rate * (self.buffer_size-event_duration)))

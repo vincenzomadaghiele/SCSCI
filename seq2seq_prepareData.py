@@ -8,13 +8,13 @@ import matplotlib.pyplot as plt
 
 import torch
 from torchvision import transforms
-from utils.transforms import LogTransform, NormalizeTensor
+from flow_utils.transforms import LogTransform, NormalizeTensor
 
 from CONSTANTS import * 
 from VAE_train import Encoder, Decoder, Model
 
 from synth.synths import Synth
-from resynthesize import melToVAElatents, melToFlowLatents, makeCrownWindow
+from seq2seq_resynthesize import melToVAElatents, melToFlowLatents, makeCrownWindow
 
 if __name__ == '__main__': 
 

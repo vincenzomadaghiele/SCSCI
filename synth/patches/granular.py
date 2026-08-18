@@ -2,16 +2,16 @@ from signalflow import *
 import time
 import numpy as np
 import random
-
+import math
 
 class Granular(Patch):
-    def __init__(self, parameter_values: list = [0,0,0,0,0,0,0,0,0,0,0,0,0]):
+    def __init__(self, sample_path: str, base_pitch_hz: float = None, parameter_values: list = [0,0,0,0,0,0,0,0,0,0,0,0,0]):
         super().__init__()
 
-        frequency = self.add_input("frequency", parameter_values[0])
+        frequency = self.add_input("density", parameter_values[0])
         duration = self.add_input("grain-duration", parameter_values[1])
         position = self.add_input("start-position", parameter_values[2])
-        rate = self.add_input("rate", parameter_values[3])
+        rate = self.add_input("frequency", parameter_values[3])
         position_variance = self.add_input("position_variance", parameter_values[4])
         duration_variance = self.add_input("duration_variance", parameter_values[5])
         rate_variance = self.add_input("rate_variance", parameter_values[6])
@@ -25,12 +25,12 @@ class Granular(Patch):
 
         # scale parameters
         # buf = Buffer("./synth/patches/samples/bowed-guitar.wav")
-        buf = Buffer("./synth/patches/samples/tibetan-ball.wav")
+        # buf = Buffer("./synth/patches/samples/tibetan-ball.wav")
+        buf = Buffer(sample_path)
         # frequency = ScaleLinExp(input=frequency, a=50, b=11050, c=1, d=50)
         gain = -1 *(gain - 1)*(gain - 1) + 1 # exponential gain
         duration = ScaleLinExp(input=duration, a=0, b=1, c=0.1, d=2)
         position = ScaleLinLin(input=position, a=0, b=1, c=0, d=buf.duration)
-        rate = ScaleLinExp(input=rate, a=0, b=1, c=0.3, d=4)
         position_variance = ScaleLinLin(input=position_variance, a=0, b=1, c=0, d=int(buf.duration/2))
         duration_variance = ScaleLinLin(input=duration_variance, a=0, b=1, c=0, d=1)
         rate_variance = ScaleLinLin(input=rate_variance, a=0, b=1, c=0, d=2)
@@ -46,6 +46,11 @@ class Granular(Patch):
                                      min=frequency-frequency*trigger_variance, 
                                      max=frequency+frequency*trigger_variance)
         grain_frequency.set_seed(666)
+
+        if base_pitch_hz:
+            rate = rate / base_pitch_hz # rate [50-11050]
+        else:
+            rate = ScaleLinExp(input=rate, a=0, b=1, c=0.3, d=4)
         clock = Impulse(frequency=grain_frequency)
         granulator = Granulator(buffer = buf,
                                 clock = clock,
@@ -70,8 +75,16 @@ if __name__ == "__main__":
     config.output_buffer_size = 256
     graph = AudioGraph(config=config, start=True)
 
+    # open sample and find base pitch
+    import librosa
+    sample_path = "./synth/patches/samples/tibetan-ball.wav"
+    sample, _ = librosa.load(sample_path, sr=graph.sample_rate, mono=True)
+    pitch = librosa.yin(sample, fmin=200, fmax=graph.sample_rate/2, sr=graph.sample_rate, frame_length=config.output_buffer_size*2, hop_length=config.output_buffer_size)
+    pitch = [p for p in pitch.tolist() if p != graph.sample_rate]
+    base_pitch_hz = np.array(pitch).mean()
+
     # GET SYNTH PROPERTIES
-    synth = Granular()
+    synth = Granular(sample_path, base_pitch_hz)
     param_names = list(synth.inputs.keys())
     param_names.remove("gate")
     param_names.remove("gain")
@@ -88,9 +101,11 @@ if __name__ == "__main__":
     # PLAY
     j = 0
     while True:
-        voice = Granular()
+        voice = Granular(sample_path, base_pitch_hz)
         new_parameters = np.random.rand(N_params).tolist()
         for i, param_name in enumerate(param_names):
+            if param_name == "frequency":
+                new_parameters[i] = math.log2(new_parameters[i]+1) * 11000 + 50
             voice.set_input(param_name, new_parameters[i]) 
         voice.set_input("gain", 1 / NUM_VOICES)
         voice.set_input("gate", 1)

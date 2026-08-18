@@ -1,6 +1,6 @@
 import torch
 import torch.distributions as distrib
-from models.vae.vae import VAE
+from flow_models.vae.vae import VAE
 
 def compute_kernel(x, y):
     x_size = x.size(0)

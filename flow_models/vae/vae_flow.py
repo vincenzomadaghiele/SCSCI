@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.vae.vae import VAE
+from flow_models.vae.vae import VAE
 
 class VAEFlow(VAE):
     
