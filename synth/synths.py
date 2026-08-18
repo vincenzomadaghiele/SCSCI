@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from synth.patches.benjolin import Benjolin
 from synth.patches.granular import Granular
 from synth.patches.snare import Snare
-from synth.patches.theremin import ADSRTheremin
+# from synth.patches.theremin import ADSRTheremin
 from synth.patches.timbreTheremin import TimbreTheremin
 
 # from CONSTANTS import *

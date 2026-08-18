@@ -238,7 +238,7 @@ if __name__ == '__main__':
     durationTranspose = True
     maskAugment = False
     randomSubstitute = True
-    NUM_AUGMENT = 10
+    NUM_AUGMENT = 15
     rmsIndexSrc = features_source.index("rms")
     rmsIndexTgt = features_target.index("rms")
     pitchIndexSrc = features_source.index("pitch")

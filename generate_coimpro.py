@@ -1,5 +1,6 @@
 import os
 import json
+import math
 import time
 import joblib
 import librosa
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     corpus_name = 'guitar-duo'
     src_track_name = 'guitar1'
     SYNTH_NAME = 'TimbreTheremin'
-    transformer_name = '1786876104-transformerDiscreteT2V'
+    transformer_name = '1786989331-transformerDiscreteT2V'
     song_name = 'recording2'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
@@ -165,17 +166,6 @@ if __name__ == '__main__':
     input_src = signal_df[features_source].values.astype(float)
     times_src = signal_df['event_start'].values.astype(float)
 
-    import matplotlib.pyplot as plt
-    # print(input_src.shape)
-    # plt.plot((input_src[:,0] - input_src[:,0].min()) / (input_src[:,0].max() - input_src[:,0].min()), label='rms')
-    # plt.plot((input_src[:,1] - input_src[:,1].min()) / (input_src[:,1].max() - input_src[:,1].min()), label='pitch')
-    # plt.plot((input_src[:,2] - input_src[:,2].min()) / (input_src[:,2].max() - input_src[:,2].min()),  label='duration')
-    # plt.legend()
-    # # plt.plot(input_src[:,2])
-    # # plt.imshow(input_src[:,:-1].T)
-    # plt.show()
-
-
     # WINDOW_N_SAMPLES = FFT_window * sr
     WINDOW_N_SAMPLES = training_parameters['window_size_s'] * sr
 
@@ -246,6 +236,9 @@ if __name__ == '__main__':
         pred_rms = y_pred[N_latents_tgt]
         pred_frequency = np.clip(y_pred[N_latents_tgt+1], 50, 11050)
         pred_duration = int(np.clip(y_pred[N_latents_tgt+2], 882, 88200))
+
+        MIDI = int(69 + 12 * math.log2(pred_frequency/440))
+        pred_frequency = 440 * 2**((MIDI - 69)/12) # tune to scale
 
         y_pred[N_latents_tgt] = pred_rms
         y_pred[N_latents_tgt+1] = pred_frequency
@@ -335,33 +328,6 @@ if __name__ == '__main__':
     sf.write(f'{results_dir}/{song_name}_{src_track_name}.wav', src_signal, sr, subtype='PCM_24')
     sf.write(f'{results_dir}/{song_name}_{SYNTH_NAME}.wav', pred_signal, sr, subtype='PCM_24')
 
-    # try:
-        # # EXTRACT EVENTS FROM AUDIO FILES
-        # src_events = extractEvents(src_signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
-        # tgt_events = extractEvents(pred_signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
-
-        # src_file_event = {}
-        # src_file_event['filename'] = f'{results_dir}/{song_name}_{src_track_name}.wav'
-        # src_file_event['song_name'] = song_name
-        # src_file_event['events'] = src_events
-        # plotEvents(src_file_event, sr, save_dir=results_dir)
-        # tgt_file_event = {}
-        # tgt_file_event['filename'] = f'{results_dir}/{song_name}_{SYNTH_NAME}.wav'
-        # tgt_file_event['song_name'] = song_name
-        # tgt_file_event['events'] = tgt_events
-        # plotEvents(tgt_file_event, sr, save_dir=results_dir)
-        # plotPairedEvents(src_file_event, tgt_file_event, sr, save_dir=results_dir)
-
-
-        # columns = [f'latent-{j}' for j in range(N_latents_src)]
-        # # columns = []
-        # columns.append('rms')
-        # columns.append('pitch')
-        # columns.append('event_duration')
-        # df_src = pd.DataFrame(src_past_events, columns=columns)
-        # df_src['event_start'] = src_past_events_starttimes
-        # df_src.to_csv(f"{results_dir}/src_events.csv")
-
     columns = [f'latent-{j}' for j in range(N_latents_tgt)]
     # columns = []
     columns.append('rms')
@@ -371,28 +337,9 @@ if __name__ == '__main__':
     df_tgt['event_start'] = tgt_past_events_starttimes
     df_tgt.to_csv(f"{results_dir}/tgt_events.csv")
 
-    # df_src['filename'] = [f'{results_dir}/performance_src.wav' for _ in range(df_src.values.shape[0])]
-    # plotEvents(df_src, sr, save_dir=results_dir, isDfin=True)
-    # signal_df['filename'] = [f'{results_dir}/performance_tgt.wav' for _ in range(df_tgt.values.shape[0])]
     df_tgt['filename'] = [f'{results_dir}/{song_name}_{SYNTH_NAME}.wav' for _ in range(df_tgt.values.shape[0])]
     plotEvents(df_tgt, sr, save_dir=results_dir, isDfin=True)
     plotPairedEvents(signal_df, df_tgt, sr, save_dir=results_dir, isDfin=True)
-
-    # except:
-    #     import matplotlib.pyplot as plt
-    #     fig, ax = plt.subplots(2, figsize=(16, 6))
-    #     librosa.display.waveshow(y=src_signal, sr=sr, color="black", axis='time', ax=ax[0], alpha=0.2)
-    #     librosa.display.waveshow(y=pred_signal, sr=sr, color="black", axis='time', ax=ax[1], alpha=0.2)
-    #     ax[0].set_title('original')
-    #     ax[1].set_title('synthesized')
-    #     ax[0].set_xticks([])
-    #     ax[0].set_xlabel('')
-    #     ax[1].set_xlabel('time')
-    #     ax[0].set_ylim([-1,1])
-    #     ax[1].set_ylim([-1,1])
-    #     fig.savefig(f'{results_dir}/{song_name}_{SYNTH_NAME}_synthesized.png')
-    #     plt.close(fig)
-
 
     df_tgt = pd.DataFrame(tgt_past_events, columns=features_target)
     df_tgt["event_start"] = tgt_past_events_starttimes

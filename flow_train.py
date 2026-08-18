@@ -380,19 +380,24 @@ with torch.no_grad():
 
     scaler = StandardScaler()
     X = scaler.fit_transform(X)
-
-    pca = PCA(n_components=3)
-    X_PCA = pca.fit_transform(X)
-    # print(pca.explained_variance_ratio_)
-    plot_scaler = StandardScaler()
-    X_PCA_scaled = plot_scaler.fit_transform(X_PCA)
-    plt.scatter(X_PCA_scaled[:,0], X_PCA_scaled[:,1], s=2)
-    plt.title("latent space")
     saveVisDir = f"{args.output}/visualize/{model_name}"
     os.makedirs(saveVisDir, exist_ok=True)
+    np.save(f'{saveVisDir}/latents.npy', X)
+
+    if X.shape[1] > 2:
+        pca = PCA(n_components=3)
+        X_PCA = pca.fit_transform(X)
+        # print(pca.explained_variance_ratio_)
+        plot_scaler = StandardScaler()
+        X_PCA_scaled = plot_scaler.fit_transform(X_PCA)
+    else:
+        X_PCA = X.copy()
+        X_PCA_scaled = X.copy()
+    plt.scatter(X_PCA_scaled[:,0], X_PCA_scaled[:,1], s=2)
+    plt.title("latent space")
     plt.savefig(f'{saveVisDir}/2D_PCA.png')
     # plt.show()
-    np.save(f'{saveVisDir}/latents.npy', X)
+    # np.save(f'{saveVisDir}/latents.npy', X)
     np.save(f'{saveVisDir}/PCA_latents_scaled.npy', X_PCA_scaled)
     np.save(f'{saveVisDir}/PCA_latents.npy', X_PCA)
     np.save(f'{saveVisDir}/params.npy', np.array(tot_params))
@@ -400,7 +405,8 @@ with torch.no_grad():
     js_data = {}
     js_data["x"] = X_PCA_scaled[:,0].tolist()
     js_data["y"] = X_PCA_scaled[:,1].tolist()
-    js_data["z"] = X_PCA_scaled[:,2].tolist()
+    if X.shape[1] > 2:
+        js_data["z"] = X_PCA_scaled[:,2].tolist()
     json_output = json.dumps(js_data, indent=4)
     with open(f'{saveVisDir}/dataset3D.json', 'w') as f:
         f.write(json_output)

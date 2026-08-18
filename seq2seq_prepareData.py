@@ -156,7 +156,9 @@ if __name__ == '__main__':
             if event['rms'] != 0:
                 event_latents, _ = melToFlowLatents(event['mel'], flow_model, mean, var)
                 if timbreRescale:
+                    print(f'prev latents {event_latents}')
                     event_latents = (event_latents - latents_mean) * (total_latents_std / latents_std) + total_latents_mean
+                    print(f'new latents {event_latents}')
                 event_latents = event_latents.tolist()
             else:
                 event_latents = (np.zeros(N_latents_tgt)).tolist()
@@ -225,17 +227,19 @@ if __name__ == '__main__':
     # if finetune
     # add finetune to dfs
 
-    finetune_path = f'{corpus_path}/finetune'
-    song_names = os.listdir(finetune_path)
-    song_names = [c for c in song_names if os.path.isdir(f'{finetune_path}/{c}') and c not in ['.DS_Store', '__pycache__']]
-    for song in song_names:
-        fintune_src = pd.read_csv(f"{finetune_path}/{song}/src_events.csv", index_col=0)
-        fintune_src['filename'] = [f'{finetune_path}/{song}/performance_src.wav' for _ in range(fintune_src.values.shape[0])]
-        fintune_tgt = pd.read_csv(f"{finetune_path}/{song}/tgt_events.csv", index_col=0)
-        fintune_tgt['filename'] = [f'{finetune_path}/{song}/performance_tgt.wav' for _ in range(fintune_tgt.values.shape[0])]
-        df_src = pd.concat([df_src, fintune_src])
-        df_tgt = pd.concat([df_tgt, fintune_tgt])
-        # df_src = df_src.reset_index()
-        # df_tgt = df_tgt.reset_index()
-    df_src.to_csv(f"{corpus_path}/src_events.csv")
-    df_tgt.to_csv(f"{corpus_path}/tgt_events.csv")
+    includeFinetune = False
+    if includeFinetune:
+        finetune_path = f'{corpus_path}/finetune'
+        song_names = os.listdir(finetune_path)
+        song_names = [c for c in song_names if os.path.isdir(f'{finetune_path}/{c}') and c not in ['.DS_Store', '__pycache__']]
+        for song in song_names:
+            fintune_src = pd.read_csv(f"{finetune_path}/{song}/src_events.csv", index_col=0)
+            fintune_src['filename'] = [f'{finetune_path}/{song}/performance_src.wav' for _ in range(fintune_src.values.shape[0])]
+            fintune_tgt = pd.read_csv(f"{finetune_path}/{song}/tgt_events.csv", index_col=0)
+            fintune_tgt['filename'] = [f'{finetune_path}/{song}/performance_tgt.wav' for _ in range(fintune_tgt.values.shape[0])]
+            df_src = pd.concat([df_src, fintune_src])
+            df_tgt = pd.concat([df_tgt, fintune_tgt])
+            # df_src = df_src.reset_index()
+            # df_tgt = df_tgt.reset_index()
+        df_src.to_csv(f"{corpus_path}/src_events.csv")
+        df_tgt.to_csv(f"{corpus_path}/tgt_events.csv")

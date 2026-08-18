@@ -37,6 +37,9 @@ class TimbreTheremin(Patch):
         # env = ASREnvelope(A, S, R)
         output1 = (tri * sine_tri + sine * (1-sine_tri)) * 0.8
         output2 = (saw * saw_square + square * (1-saw_square)) * 0.2
+        # combined_output = (output1 + output2)
+        # filter = BiquadFilter(input=combined_output, filter_type='low_pass', cutoff=frequency, resonance=0.1, peak_gain=0.0)
+        # output = filter * env * gain
         output = (output1 + output2) * env * gain
 
         # forward
@@ -74,12 +77,12 @@ if __name__ == "__main__":
         new_parameters = np.random.rand(N_params).tolist()
         for i, param_name in enumerate(param_names):
             if param_name == "frequency":
-                new_parameters[i] = math.log2(new_parameters[i]+1) * 2000 + 50
+                new_parameters[i] = math.log2(new_parameters[i]+1) * 11000 + 50
             voice.set_input(param_name, new_parameters[i]) 
         voice.set_input("gain", 1 / NUM_VOICES)
         voice.set_input("gate", 1)
         # voice.trigger()
-        voice.auto_free = True
+        # voice.auto_free = True
         # panner = StereoPanner( voice , pan=float(np.random.rand()))
         voice.play()
         voices[j] = voice

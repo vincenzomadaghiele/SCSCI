@@ -32,7 +32,7 @@ class Benjolin(Patch):
     def __init__(self, graph: AudioGraph, parameter_values: list = [0,0,0,0,0,0,0,0,0,0,0,0,0]):
         super().__init__()
 
-        FRQ01 = self.add_input("FRQ01", parameter_values[0])
+        FRQ01 = self.add_input("frequency", parameter_values[0])
         FRQ02 = self.add_input("FRQ02", parameter_values[1])
         RUN01 = self.add_input("RUN01", parameter_values[2])
         RUN02 = self.add_input("RUN02", parameter_values[3])
@@ -42,12 +42,14 @@ class Benjolin(Patch):
         FIL_SWP = self.add_input("FIL_SWP", parameter_values[7])
         gain = self.add_input("gain", parameter_values[8])
         A = self.add_input(f"A", parameter_values[9])
-        # D = self.add_input(f"D", parameter_values[10])
+        D = self.add_input(f"D", parameter_values[10])
         S = self.add_input(f"S", parameter_values[10])
         R = self.add_input(f"R", parameter_values[11])
-        # gate = self.add_input("gate", 1.0)
+        gate = self.add_input("gate", 1.0)
 
         ## PARAMETERS
+        # FRQ01 = Clip(FRQ01, 50, 11050)
+        # FRQ01 = FrequencyToMidiNote(FRQ01)
         FRQ01 = ScaleLinLin(input=FRQ01, a=0, b=1, c=0, d=127)
         FRQ02 = ScaleLinLin(input=FRQ02, a=0, b=1, c=0, d=127)
         RUN01 = ScaleLinLin(input=RUN01, a=0, b=1, c=0, d=127)
@@ -57,11 +59,11 @@ class Benjolin(Patch):
         FIL_RUN = ScaleLinLin(input=FIL_RUN, a=0, b=1, c=0, d=127)
         FIL_SWP = ScaleLinLin(input=FIL_SWP, a=0, b=1, c=0, d=127)
         A = ScaleLinLin(input=A, a=0, b=1, c=0.001, d=0.01)
-        # D = ScaleLinLin(input=D, a=0, b=1, c=0.1, d=0.9)
+        D = ScaleLinLin(input=D, a=0, b=1, c=0.1, d=0.9)
         S = ScaleLinLin(input=S, a=0, b=1, c=0.5, d=1)
         R = ScaleLinLin(input=R, a=0, b=1, c=0.1, d=1)
-        # env = ADSREnvelope(A, D, S, R, gate=gate)
-        env = ASREnvelope(A, S, R)
+        env = ADSREnvelope(A, D, S, R, gate=gate)
+        # env = ASREnvelope(A, S, R)
 
         buf_pulse01 = Buffer(1, graph.output_buffer_size)
         buf_pulse02 = Buffer(1, graph.output_buffer_size)
@@ -98,9 +100,9 @@ class Benjolin(Patch):
         output = output * gain * env
 
         self.set_output(output)
-        self.set_trigger_node(env)
-        # self.set_auto_free(True)
-        self.set_auto_free(False)
+        # self.set_trigger_node(env)
+        self.set_auto_free(True)
+        # self.set_auto_free(False)
 
 if __name__ == "__main__":
 
@@ -110,7 +112,7 @@ if __name__ == "__main__":
     graph = AudioGraph(config=config, start=True)
 
     # GET SYNTH PROPERTIES
-    synth = Benjolin()
+    synth = Benjolin(graph)
     param_names = list(synth.inputs.keys())
     param_names.remove("gate")
     param_names.remove("gain")
@@ -127,7 +129,7 @@ if __name__ == "__main__":
     # PLAY
     j = 0
     while True:
-        voice = Benjolin()
+        voice = Benjolin(graph)
         new_parameters = np.random.rand(N_params).tolist()
         for i, param_name in enumerate(param_names):
             voice.set_input(param_name, new_parameters[i]) 

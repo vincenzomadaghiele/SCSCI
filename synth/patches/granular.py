@@ -7,6 +7,7 @@ import random
 class Granular(Patch):
     def __init__(self, parameter_values: list = [0,0,0,0,0,0,0,0,0,0,0,0,0]):
         super().__init__()
+
         frequency = self.add_input("frequency", parameter_values[0])
         duration = self.add_input("grain-duration", parameter_values[1])
         position = self.add_input("start-position", parameter_values[2])
@@ -17,15 +18,16 @@ class Granular(Patch):
         trigger_variance = self.add_input("trigger_variance", parameter_values[7])
         gain = self.add_input("gain", parameter_values[8])
         A = self.add_input(f"A", parameter_values[9])
-        # D = self.add_input(f"D", parameter_values[10])
+        D = self.add_input(f"D", parameter_values[10])
         S = self.add_input(f"S", parameter_values[10])
         R = self.add_input(f"R", parameter_values[11])
-        # gate = self.add_input("gate", 1.0)
+        gate = self.add_input("gate", 1.0)
 
         # scale parameters
-        # buf = Buffer("./samples/bowed-guitar.wav")
-        buf = Buffer("./synths/patches/samples/tibetan-ball.wav")
-        frequency = ScaleLinExp(input=frequency, a=0, b=1, c=1, d=50)
+        # buf = Buffer("./synth/patches/samples/bowed-guitar.wav")
+        buf = Buffer("./synth/patches/samples/tibetan-ball.wav")
+        # frequency = ScaleLinExp(input=frequency, a=50, b=11050, c=1, d=50)
+        gain = -1 *(gain - 1)*(gain - 1) + 1 # exponential gain
         duration = ScaleLinExp(input=duration, a=0, b=1, c=0.1, d=2)
         position = ScaleLinLin(input=position, a=0, b=1, c=0, d=buf.duration)
         rate = ScaleLinExp(input=rate, a=0, b=1, c=0.3, d=4)
@@ -34,16 +36,16 @@ class Granular(Patch):
         rate_variance = ScaleLinLin(input=rate_variance, a=0, b=1, c=0, d=2)
         trigger_variance = ScaleLinLin(input=trigger_variance, a=0, b=1, c=0, d=1)
         A = ScaleLinLin(input=A, a=0, b=1, c=0.001, d=0.1)
-        # D = ScaleLinLin(input=D, a=0, b=1, c=0.01, d=0.3)
+        D = ScaleLinLin(input=D, a=0, b=1, c=0.01, d=0.3)
         S = ScaleLinLin(input=S, a=0, b=1, c=0.5, d=3)
         R = ScaleLinLin(input=R, a=0, b=1, c=0.6, d=2)
 
         # define synthesizer
-        # env = ADSREnvelope(A, D, S, R, gate=gate)
-        env = ASREnvelope(A, S, R)
+        env = ADSREnvelope(A, D, S, R, gate=gate)
         grain_frequency = WhiteNoise(frequency=frequency, 
                                      min=frequency-frequency*trigger_variance, 
                                      max=frequency+frequency*trigger_variance)
+        grain_frequency.set_seed(666)
         clock = Impulse(frequency=grain_frequency)
         granulator = Granulator(buffer = buf,
                                 clock = clock,
@@ -58,10 +60,8 @@ class Granular(Patch):
         output = granulator * env * gain
 
         # forward
-        self.set_trigger_node(env)
         self.set_output(output)
-        # self.set_auto_free(True)
-        self.set_auto_free(False)
+        self.set_auto_free(True)
 
 if __name__ == "__main__":
 
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     N_params = len(param_names)
 
     # PLAYBACK PROPERTIES
-    metro = 0.6
+    metro = 0.3
     random_metro = 0.5
     NUM_VOICES = 10
     MAX_DURATION = 4

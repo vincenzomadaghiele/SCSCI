@@ -5,6 +5,7 @@ import joblib
 import librosa
 import numpy as np
 import pandas as pd
+import math
 
 import torch
 
@@ -81,7 +82,7 @@ if __name__ == "__main__":
 
 
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
-    transformer_name = '1786876104-transformerDiscreteT2V'
+    transformer_name = '1786989331-transformerDiscreteT2V'
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
@@ -218,7 +219,6 @@ if __name__ == "__main__":
 
     tot_events = []
     tot_src_signal = []
-
     try:
         # save files
         timestamp = int(time.time())
@@ -390,6 +390,10 @@ if __name__ == "__main__":
                 pred_rms = y_pred[N_latents_tgt]
                 pred_frequency = np.clip(y_pred[N_latents_tgt+1], 50, 11050)
                 pred_duration = int(np.clip(y_pred[N_latents_tgt+2], 882, 88200))
+
+                MIDI = int(69 + 12 * math.log2(pred_frequency/440))
+                pred_frequency = 440 * 2**((MIDI - 69)/12) # tune to scale
+
 
                 y_pred[N_latents_tgt] = pred_rms
                 y_pred[N_latents_tgt+1] = pred_frequency

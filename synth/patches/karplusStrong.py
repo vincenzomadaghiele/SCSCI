@@ -1,65 +1,63 @@
-from signalflow import *
 import time
-import numpy as np
 import random
+import math
+import numpy as np
+from signalflow import *
 
 
 class KarplusStrong(Patch):
-    def __init__(self, graph, parameter_values: list = [0,0,0,0,0,0,0]):
+    def __init__(self, graph: AudioGraph, parameter_values: list = [0,0,0,0,0,0,0,0]):
         super().__init__()
 
-        MIDI = self.add_input(f"MIDI", parameter_values[0])
-        damping_MIDI = self.add_input(f"damping_MIDI", parameter_values[1])
-        feedback_amt = self.add_input(f"feedback_amt", parameter_values[2])
-        A = self.add_input(f"A", parameter_values[3])
-        S = self.add_input(f"S", parameter_values[4])
-        R = self.add_input(f"R", parameter_values[5])
-        gain = self.add_input(f"gain", parameter_values[6])
+        frequency = self.add_input(f"frequency", parameter_values[0]) # Hz
+        gain = self.add_input(f"gain", parameter_values[1])
+        feedback = self.add_input(f"feedback", parameter_values[2])
+        damping = self.add_input(f"damping", parameter_values[3])
+        A = self.add_input(f"A", parameter_values[4])
+        D = self.add_input(f"D", parameter_values[5])
+        S = self.add_input(f"S", parameter_values[6])
+        R = self.add_input(f"R", parameter_values[7])
+        gate = self.add_input("gate", 1.0)
 
-        # input parameters are all normalized between 0 and 1
-        MIDI = ScaleLinLin(MIDI, 0, 1, 40, 50)
-        damping_MIDI = ScaleLinLin(damping_MIDI, 0, 1, 90, 127)
-        feedback_amt = ScaleLinLin(feedback_amt, 0, 1, 0.7, 0.8)
-        A = ScaleLinLin(A, 0, 1, 0.0005, 0.01)
-        S = ScaleLinLin(S, 0, 1, 0.0005, 0.001)
-        R = ScaleLinLin(R, 0, 1, 0.0005, 5)
+        gain = -1 *(gain - 1)*(gain - 1) + 1 # exponential gain
+        feedback = ScaleLinExp(input=feedback, a=0, b=1, c=0.9, d=0.999)
+        damping = ScaleLinLin(input=damping, a=0, b=1, c=500, d=5000)
+        A = ScaleLinLin(input=A, a=0, b=1, c=0.001, d=0.2)
+        D = ScaleLinLin(input=D, a=0, b=1, c=0.001, d=0.1)
+        S = ScaleLinLin(input=S, a=0, b=1, c=0.001, d=0.002)
+        R = ScaleLinLin(input=R, a=0, b=1, c=0.001, d=0.002)
 
-        # create synth
-        frequency = MidiNoteToFrequency(MIDI)
-        damping = MidiNoteToFrequency(damping_MIDI)
-
-        feedback = Buffer(1, 4086)
-        delay = Buffer(1, graph.sample_rate * 100)
+        feedback_buf = Buffer(1, 2048)
+        feedback_reader = FeedbackBufferReader(feedback_buf)
         noise = WhiteNoise(frequency=0.0, min=-1.0, max=1.0)
-        env = ASREnvelope(A, S, R)
-        graph.add_node(FeedbackBufferWriter(delay, noise * env + FeedbackBufferReader(feedback), 1/frequency))
-        
-        delayout = FeedbackBufferReader(delay)
-        filter_out = SVFilter(input=delayout, filter_type='low_pass', cutoff=damping, resonance=0.1)
-        graph.add_node(FeedbackBufferWriter(feedback, filter_out * feedback_amt, graph.output_buffer_size / graph.sample_rate))
-        output = filter_out * gain
+        noise.set_seed(666)
+        env = ADSREnvelope(A, D, S, R, gate=gate)
+        player = noise * env
+        output = SVFilter(player * 0.5 + feedback_reader, "low_pass", damping)
+        feedback_writer = FeedbackBufferWriter(feedback_buf, output * feedback, 1/frequency)
+        graph.add_node(feedback_writer)
+        out = output * gain
 
-        # forward
-        self.set_trigger_node(env)
-        self.set_output(output)
+        self.set_output(out)
         self.set_auto_free(True)
+
 
 if __name__ == "__main__":
 
     # AUDIO GRAPH
     config = AudioGraphConfig()
-    config.output_buffer_size = 256
+    config.output_buffer_size = 128
     graph = AudioGraph(config=config, start=True)
 
     # GET SYNTH PROPERTIES
-    synth = KarplusStrong()
+    synth = KarplusStrong(graph)
     param_names = list(synth.inputs.keys())
     param_names.remove("gate")
     param_names.remove("gain")
     N_params = len(param_names)
 
     # PLAYBACK PROPERTIES
-    metro = 0.6
+    metro = 0.1
     random_metro = 0.5
     NUM_VOICES = 10
     MAX_DURATION = 4
@@ -69,13 +67,15 @@ if __name__ == "__main__":
     # PLAY
     j = 0
     while True:
-        voice = KarplusStrong()
+        voice = KarplusStrong(graph)
         new_parameters = np.random.rand(N_params).tolist()
         for i, param_name in enumerate(param_names):
+            if param_name == "frequency":
+                new_parameters[i] = math.log2(new_parameters[i]+1) * 200 + 50
             voice.set_input(param_name, new_parameters[i]) 
         voice.set_input("gain", 1 / NUM_VOICES)
         voice.set_input("gate", 1)
-        voice.auto_free = True
+        # voice.trigger()
         voice.play()
         voices[j] = voice
         durations[j] = random.random() * MAX_DURATION
@@ -89,4 +89,28 @@ if __name__ == "__main__":
             durations[k] = 0
         time.sleep(metro + random.random() * random_metro)
 
+
+
+    # feedback = 0.99
+    # note_interval = 0.125
+    # frequency = 200    
+
+    # feedback_buf = Buffer(1, 2048)
+    # feedback_reader = FeedbackBufferReader(feedback_buf)
+    # noise = WhiteNoise(frequency=0.0, min=-1.0, max=1.0)
+    # noise.set_seed(666)
+    # env = ADSREnvelope(0.001, 0.001, 0.001, 0.001)
+    # player = noise * env
+    # output = SVFilter(player * 0.5 + feedback_reader, "low_pass", 4000)
+    # feedback_writer = FeedbackBufferWriter(feedback_buf, output * feedback, 1/frequency)
+    # out = output + feedback_writer
+    # graph.play(out)
+
+    # while True:
+    #     graph.wait(note_interval)
+    #     env.set_input("gate", 1)
+    #     time.sleep(0.01)
+    #     env.set_input("gate", 0)
+    #     # env.trigger()
+    #     # random_frequency.trigger()
 
