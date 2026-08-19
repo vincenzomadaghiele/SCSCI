@@ -84,6 +84,9 @@ if __name__ == '__main__':
     src_track_name = 'guitar1'
     tgt_track_name = 'guitar2'
     SYNTH_NAME = 'TimbreTheremin'
+    with open(f"synth/params/{SYNTH_NAME}.txt", "r") as file:
+        params = file.readlines()
+    N_latents_tgt = len(params) # num of target latents is the same as the number of parameters
 
     # TRAIN SEQ2SEQ ON LATENTS
     training_parameters = {}
@@ -109,7 +112,7 @@ if __name__ == '__main__':
     training_parameters['seed'] = 666
     training_parameters['use_timbre'] = True
     training_parameters['N_latents_src'] = 8
-    training_parameters['N_latents_tgt'] = 2
+    training_parameters['N_latents_tgt'] = N_latents_tgt
     model_load_path = None
 
     random.seed(training_parameters['seed'])
@@ -118,13 +121,9 @@ if __name__ == '__main__':
 
     if training_parameters['use_timbre']:
         features_source = [f'latent-{j}' for j in range(training_parameters['N_latents_src'])]
-        features_source.append('rms')
-        features_source.append('pitch')
-        features_source.append('event_duration')
+        features_source += ['rms', 'pitch', 'event_duration']
         features_target = [f'latent-{j}' for j in range(training_parameters['N_latents_tgt'])]
-        features_target.append('rms')
-        features_target.append('pitch')
-        features_target.append('event_duration')
+        features_target += ['rms', 'pitch', 'event_duration']
     else:
         features_source = ['rms', 'pitch', 'event_duration']
         features_target = ['rms', 'pitch', 'event_duration']
@@ -282,6 +281,7 @@ if __name__ == '__main__':
                         x_src[random.randint(0, src_len), :-1] = x_src[random.randint(0, src_len), :-1]
                         x_tgt[random.randint(0, tgt_len), :-1] = x_tgt[random.randint(0, tgt_len), :-1]
                 new_data.append([x_src, x_tgt, y_tgt])
+    non_augmented_data = data.copy()
     data = new_data
     # save non-augmented data for later testing
 
@@ -397,10 +397,56 @@ if __name__ == '__main__':
     writer.flush()
     writer.close()
 
+    # ----------------------------------------#
+    # PERFORM EVALUATION ON NON-AUGMENTED DATA
+    # ----------------------------------------#
+
     # load best model weights
     evaluation_metrics = {}
     model_load_path = f'{logdir}/best_model.pth'
     model.load_state_dict(torch.load(model_load_path, weights_only=True))
+    # CUT SEQUENCE LENGTH
+    MAX_SEQ_LEN = training_parameters['max_sequence_length']
+    new_data = []
+    for datum in non_augmented_data:
+        if datum[0].shape[0] > 0 and datum[1].shape[0] > 0:
+            x_src = datum[0]
+            x_src[:,-1] = src_time_scaler.transform(x_src[:,-1].reshape(-1,1)).reshape(-1)
+            x_tgt = datum[1]
+            x_tgt[:,-1] = src_time_scaler.transform(x_tgt[:,-1].reshape(-1,1)).reshape(-1)
+            x_src = x_src[-MAX_SEQ_LEN:,:]
+            x_tgt = x_tgt[-MAX_SEQ_LEN:,:]
+            new_data.append([x_src, x_tgt, datum[2]])
+    data = new_data
+    # PAD SEQUENCES
+    PAD_TOKEN = training_parameters['pad_token']
+    new_data = []
+    for datum in data:
+        x_src = np.ones((MAX_SEQ_LEN, len(features_source)+1)) * PAD_TOKEN
+        x_tgt = np.ones((MAX_SEQ_LEN, len(features_target)+1)) * PAD_TOKEN
+        x_src[:datum[0].shape[0],:] = datum[0]
+        x_tgt[:datum[1].shape[0],:] = datum[1]
+        new_data.append([x_src, x_tgt, datum[2]])
+    data = new_data
+
+    # shuffle sequences
+    np.random.shuffle(data)
+
+    # train-validation split
+    train_perc = training_parameters['dataset_training_percentage']
+    val_perc = training_parameters['dataset_validation_percentage']
+    train_data = data[:int(len(data)*train_perc)]
+    test_data = data[int(len(data)*train_perc):]
+    val_data = train_data[int(len(train_data)*(1-val_perc)):]
+    train_data = train_data[:int(len(train_data)*(1-val_perc))]
+
+    # make training batches
+    batch_size = training_parameters['batch_size']
+    train_dataloader = batchify(train_data, batch_size)
+    val_dataloader = batchify(val_data, batch_size)
+    test_dataloader = batchify(test_data, batch_size)
+
+    # compute R2 score
     train_loss = validationLoop(model, train_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
     evaluation_metrics['training_MSE'] = train_loss
     validation_loss = validationLoop(model, val_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
@@ -410,6 +456,7 @@ if __name__ == '__main__':
     with open(f'{logdir}/evaluation.json', 'w', encoding='utf-8') as f:
         json.dump(evaluation_metrics, f, ensure_ascii=False, indent=4)
 
-    # generate coimpros offline
-
-    # test on ORIGINAL DATASET (not augmented one) and R2 score
+    # ----------------------------------------#
+    # GENERATE CO-IMPROVISATIONS OFFLINE
+    # ----------------------------------------#
+    

@@ -56,7 +56,16 @@ def melToFlowLatents(mels, flow_model, mean, var, num_MELS=64, melspec_size=80):
         predicted_parameters = flow_model.regression_model(z_tilde) # parameters
     return z_tilde[0].detach().cpu().numpy(), predicted_parameters[0].detach().cpu().numpy()
 
-def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var):
+def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNTH_NAME, 
+                        latents_mean=None, latents_std=None, total_latents_mean=None, total_latents_std=None):
+
+    # LOAD SYNTH
+    RECORDING_TIME = int(melspec_size_flow * FFT_window / sr)
+    synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
+    param_names = synth.getInputs()
+    timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
+    synth.close()
+
     events = extractEvents(signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
     # COMPUTE LATENTS
     VAE_latents, flow_latents = [], []
@@ -69,7 +78,10 @@ def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var):
             VAE_latents.append(event_latents)
             # COMPUTE FLOW LATENTS
             z_tilde, predicted_parameters = melToFlowLatents(event['mel'], flow_model, flow_mean, flow_var)
-            flow_latents.append(z_tilde)
+            if latents_mean is not None and latents_std is not None and total_latents_mean is not None and total_latents_std is not None:
+                z_tilde = (z_tilde - latents_mean) * (total_latents_std / latents_std) + total_latents_mean
+            event_latents = event_latents.tolist()
+            flow_latents.append(z_tilde.tolist())
             # RE-SYNTHESIZE SOUND EVENT
             synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
             synth.setParameters(timbre_param_names, predicted_parameters.tolist())
@@ -77,7 +89,8 @@ def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var):
                 synth.setParameters([frequency_param_name], [event['pitch']])
             synth.setParameters([gain_param_name], [float(np.clip(event['rms']*5, 0, 1))])
             synth.setParameters(envelope_param_names, [0.3, 0.3, 0.2, 0.1])
-            synthesized_event = synth.forward(event['event_duration'] / sr) 
+            event['event_duration'] = np.clip(event['event_duration'], min_event_duration_samples, max_event_duration_samples)
+            synthesized_event = synth.forward( event['event_duration'] / sr ) 
             synth.close()
             if synthesized_event.shape[0] > event['event_duration']:
                 event['resynthesized'] = synthesized_event[:event['event_duration']]
@@ -101,7 +114,7 @@ def plotDualWaveform(original_reconstruct, resynthesized_reconstruct, SAVE_FILEP
     ax[1].set_xlabel('time')
     ax[0].set_ylim([-1,1])
     ax[1].set_ylim([-1,1])
-    fig.savefig(f'{SAVE_FILEPATH}/{tgt_track_name}_{SYNTH_NAME}_resynthesized.png')
+    fig.savefig(f'{SAVE_FILEPATH}/resynthesized.png')
 
 def plotFlowTimbre(full_flow_latents, flow_latents_path, SAVE_FILEPATH):
     # PLOT PATH ON THE FLOW TIMBRE SPACE
@@ -182,13 +195,6 @@ if __name__ == '__main__':
         d = json.load(f)
         flow_var = d['mel']
 
-    # LOAD SYNTH
-    RECORDING_TIME = int(melspec_size_flow * FFT_window / sr)
-    synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
-    param_names = synth.getInputs()
-    timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
-    synth.close()
-
     # LOAD VAE
     corpus_path = f'corpus/{corpus_name}'
     VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
@@ -205,7 +211,7 @@ if __name__ == '__main__':
     # RESYNTHESIZE FILE
     filepath = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}.wav'
     signal, _ = librosa.load(filepath, sr=sr, mono=True)
-    flow_latents, VAE_latents, original_reconstruct, resynthesized_reconstruct = resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var)
+    flow_latents, VAE_latents, original_reconstruct, resynthesized_reconstruct = resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNTH_NAME)
 
     # SAVE AUDIOFILE
     SAVE_FILEPATH = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}_{SYNTH_NAME}'

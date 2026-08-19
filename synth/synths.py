@@ -5,10 +5,10 @@ from signalflow import *
 import numpy as np
 import soundfile as sf
 import matplotlib.pyplot as plt
-from patches.benjolin import Benjolin
-from patches.granular import Granular
-from patches.snare import Snare
-from patches.timbreTheremin import TimbreTheremin
+from synth.patches.benjolin import Benjolin
+from synth.patches.granular import Granular
+from synth.patches.snare import Snare
+from synth.patches.timbreTheremin import TimbreTheremin
 
 # from CONSTANTS import *
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
