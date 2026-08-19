@@ -125,7 +125,7 @@ if __name__ == '__main__':
     training_parameters['pad_token'] = -1000
     training_parameters['loss_fn'] = 'MSE'
     training_parameters['learning_rate'] = 0.001
-    training_parameters['epochs'] = 2
+    training_parameters['epochs'] = 1
     training_parameters['seed'] = 666
     training_parameters['use_timbre'] = True
     training_parameters['N_latents_src'] = 8
@@ -144,6 +144,10 @@ if __name__ == '__main__':
     else:
         features_source = ['rms', 'pitch', 'event_duration']
         features_target = ['rms', 'pitch', 'event_duration']
+
+    training_parameters['features_source'] = features_source
+    training_parameters['features_target'] = features_target
+
 
     # MAKE SAVE DIRECTORY
     today = date.today()
@@ -302,7 +306,6 @@ if __name__ == '__main__':
     data = new_data
     # save non-augmented data for later testing
 
-
     # CUT SEQUENCE LENGTH
     MAX_SEQ_LEN = int(np.array(seq_lens).mean() + np.array(seq_lens).std())
     if model_load_path:
@@ -384,33 +387,26 @@ if __name__ == '__main__':
     else:
         loss_fn = nn.MSELoss()
 
-
     # Used for plotting later on
     train_loss_list, validation_loss_list = [], []
-
     writer = SummaryWriter(logdir)
     epochs = training_parameters['epochs']
     best_loss = float('inf')
     print("Training and validating model")
     for epoch in range(epochs):
         print("-"*25, f"Epoch {epoch + 1}","-"*25)
-
         train_loss = trainLoop(model, train_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
         train_loss_list += [train_loss]
         writer.add_scalar("Loss/train", train_loss, epoch)
-
         validation_loss = validationLoop(model, val_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
         validation_loss_list += [validation_loss]
         writer.add_scalar("Loss/validation", validation_loss, epoch)
-
         print(f"Training loss: {train_loss:.4f}")
         print(f"Validation loss: {validation_loss:.4f}")
         print()
-
         if validation_loss < best_loss:
             best_loss = validation_loss
             torch.save(model.state_dict(), f'{logdir}/best_model.pth')
-
     writer.flush()
     writer.close()
 
@@ -483,3 +479,36 @@ if __name__ == '__main__':
     # GENERATE CO-IMPROVISATIONS OFFLINE
     # ----------------------------------------#
     
+    from VAE_train import Encoder, Decoder, Model
+    from seq2seq_generate_coimpro import generateCoImprovisation
+
+    training_parameters['max_sequence_length'] = MAX_SEQ_LEN 
+
+    device = torch.device("cpu") 
+
+    # LOAD VAE FOR SRC ENCODING
+    corpus_path = f'corpus/{corpus_name}'
+    VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
+    hidden_dim = 128 # load these from pre-saved JSON
+    latent_dim = 8
+    image_size = 64
+    image_size_flat = image_size * image_size
+    encoder = Encoder(input_dim=image_size_flat, hidden_dim=hidden_dim, latent_dim=latent_dim)
+    decoder = Decoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = image_size_flat)
+    VAE_model = Model(Encoder=encoder, Decoder=decoder).to(device)
+    VAE_model.load_state_dict(torch.load(VAE_model_name, weights_only=True))
+    VAE_model.eval()
+
+    # LOAD FLOW MODEL FOR TGT COMPUTATION
+    model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
+    flow_model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
+    flow_model = torch.load(f'{model_path}/{flow_model_name}.model', weights_only=False, map_location=device).to(device)
+    flow_model.eval()
+
+    N_GEN_COIMPRO = 4
+    for filename in common_filenames[:N_GEN_COIMPRO]:
+        src_audio_filepath = f"{training_parameters['sound_corpus_path']}/{filename}/{training_parameters['target_track_name']}.wav"
+        generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_model, model.to(device), 
+                                training_parameters, src_scaler, tgt_scaler, src_time_scaler, tgt_time_scaler,
+                                training_parameters['use_timbre'], device, logdir)
+        # print maps over latent space PCA

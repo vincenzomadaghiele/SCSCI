@@ -28,7 +28,13 @@ def makeCrownWindow(size, fade_perc = 0.01):
     return crown_window
 
 
-def generateCoImprovisation(src_signal, SYNTH_NAME, VAE_model, flow_model, model):
+def generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_model, model, 
+                            training_parameters, 
+                            src_scaler, tgt_scaler, src_time_scaler, tgt_time_scaler, 
+                            useTimbre=True, DEVICE='cpu', model_dir=''):
+
+    src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
+    song_name = src_audio_filepath.split('/')[-2]
 
     # LOAD SYNTH
     RECORDING_TIME = int(melspec_size_flow * FFT_window / sr)
@@ -36,6 +42,15 @@ def generateCoImprovisation(src_signal, SYNTH_NAME, VAE_model, flow_model, model
     param_names = synth.getInputs()
     timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
     synth.close()
+
+    if useTimbre:
+        N_latents_tgt = training_parameters['N_latents_tgt']
+    else:
+        N_latents_tgt = 0
+
+    image_size = 64
+    latent_dim = 8
+    image_size_flat = image_size * image_size
 
     pred_signal = np.zeros(src_signal.shape[0])
     event_sequence = extractEvents(src_signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
@@ -62,6 +77,8 @@ def generateCoImprovisation(src_signal, SYNTH_NAME, VAE_model, flow_model, model
     signal_df = pd.DataFrame(src_events, columns=columns)
 
     # normalize for input
+    features_source = training_parameters['features_source']
+    features_target = training_parameters['features_target']
     input_src = signal_df[features_source].values.astype(float)
     times_src = signal_df['event_start'].values.astype(float)
 
@@ -130,16 +147,18 @@ def generateCoImprovisation(src_signal, SYNTH_NAME, VAE_model, flow_model, model
             y_pred[N_latents_tgt+1] = 0
             print(f'[{pred_signal_sample/sr:.3f}] SYNTH REST  | rms: {0:.3f}, pitch: {0:.3f}, duration: {pred_duration / sr:.3f}')
         else:
-            next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
-            with torch.no_grad():
-                predicted_parameters = flow_model.regression_model(next_latents) # parameters
-            predicted_parameters = predicted_parameters[0].detach().cpu().numpy()
             synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
             synth.setParameters(['frequency'], [pred_frequency])
             synth.setParameters(['gain'], [float(np.clip(pred_rms*5, 0, 1))])
             synth.setParameters(envelope_param_names, [0.3, 0.3, 0.2, 0.1])
-            # synth.setParameters(timbre_param_names, [0.1, 0.1])
-            synth.setParameters(timbre_param_names, predicted_parameters.tolist())
+            if useTimbre:
+                next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
+                with torch.no_grad():
+                    predicted_parameters = flow_model.regression_model(next_latents) # parameters
+                predicted_parameters = predicted_parameters[0].detach().cpu().numpy()
+                synth.setParameters(timbre_param_names, predicted_parameters.tolist())
+            else:
+                synth.setParameters(timbre_param_names, np.ones(len(timbre_param_names)).tolist() * 0.5)
             sound_segment = synth.forward((pred_duration - pred_duration/4) / sr)
             synth.close()
             sound_segment = sound_segment[:pred_duration]
@@ -189,7 +208,7 @@ def generateCoImprovisation(src_signal, SYNTH_NAME, VAE_model, flow_model, model
     os.makedirs(results_dir, exist_ok=True)
     out_signal = np.concatenate((src_signal.reshape(-1,1), pred_signal.reshape(-1,1)), axis=1)
     sf.write(f'{results_dir}/{song_name}_combined.wav', out_signal, sr, subtype='PCM_24')
-    sf.write(f'{results_dir}/{song_name}_{src_track_name}.wav', src_signal, sr, subtype='PCM_24')
+    sf.write(f'{results_dir}/{song_name}_{training_parameters["source_track_name"]}.wav', src_signal, sr, subtype='PCM_24')
     sf.write(f'{results_dir}/{song_name}_{SYNTH_NAME}.wav', pred_signal, sr, subtype='PCM_24')
 
     columns = [f'latent-{j}' for j in range(N_latents_tgt)]
@@ -209,7 +228,6 @@ def generateCoImprovisation(src_signal, SYNTH_NAME, VAE_model, flow_model, model
     df_tgt["event_start"] = tgt_past_events_starttimes
     print(df_tgt.head())
     df_tgt.to_csv(f"{results_dir}/{song_name}_{SYNTH_NAME}_tgt_events.csv")
-
 
 np.set_printoptions(precision=3, suppress=True)
 
@@ -244,7 +262,7 @@ if __name__ == '__main__':
         features_target = ['rms', 'pitch', 'event_duration']
 
     # create model
-    model = TransformerDiscreteT2V(
+    seq2seq_model = TransformerDiscreteT2V(
             num_featuresin=len(features_source)+1,
             num_featuresout=len(features_target)+1,
             num_frequency=training_parameters['num_frequency'],
@@ -256,8 +274,8 @@ if __name__ == '__main__':
             dim_feedforward=training_parameters['dim_feedforward'], 
             dropout_p=training_parameters['dropout_p']
     ).to(DEVICE)
-    model.load_state_dict(torch.load(model_load_path, weights_only=True))
-    model.eval()
+    seq2seq_model.load_state_dict(torch.load(model_load_path, weights_only=True))
+    seq2seq_model.eval()
     # LOAD MODEL UTILS
     src_scaler = joblib.load(f'{model_dir}/source_scaler.pkl')
     tgt_scaler = joblib.load(f'{model_dir}/target_scaler.pkl')
@@ -281,16 +299,10 @@ if __name__ == '__main__':
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
     flow_model.eval()
-    # LOAD DATASET STATS FOR NORMALIZATION
-    data_stats_path = f'./synth/datasets/{SYNTH_NAME}/means.json'
-    with open(f'./synth/datasets/{SYNTH_NAME}/means.json') as f:
-        d = json.load(f)
-        mean = d['mel']
-    with open(f'./synth/datasets/{SYNTH_NAME}/vars.json') as f:
-        d = json.load(f)
-        var = d['mel']
 
     # LOAD AUDIO FILE
     src_audio_filepath = f'corpus/{corpus_name}/{song_name}/{src_track_name}.wav'
-    src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
-    generateCoImprovisation(src_signal, SYNTH_NAME, VAE_model, flow_model, model)
+    generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_model, seq2seq_model, 
+                            training_parameters, 
+                            src_scaler, tgt_scaler, src_time_scaler, tgt_time_scaler, 
+                            training_parameters['use_timbre'], DEVICE)
