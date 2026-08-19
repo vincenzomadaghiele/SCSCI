@@ -69,6 +69,23 @@ def validationLoop(model, val_dataloader, loss_fn, opt, device, PAD_TOKEN):
             total_loss += loss.detach().item()
     return total_loss / len(val_dataloader)
 
+def evaluateR2Loop(model, val_dataloader, device, PAD_TOKEN, tgt_scaler):
+    model.eval()
+    total_loss = 0
+    with torch.no_grad():
+        for batch in val_dataloader:
+            X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
+            y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
+            y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0], batch[2].shape[1])
+            src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device).to(torch.bool)
+            tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device).to(torch.bool)
+            pred = model(X, y, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
+            y_expected_denorm = tgt_scaler.inverse_transform(y_expected.detach().cpu().numpy().reshape(pred.shape[1], pred.shape[2]))
+            pred_denorm = tgt_scaler.inverse_transform(pred.detach().cpu().numpy().reshape(pred.shape[1], pred.shape[2]))
+            r2 = r2_score(y_expected_denorm, pred_denorm)
+            total_loss += r2
+    return total_loss / len(val_dataloader)
+
 
 if __name__ == '__main__': 
 
@@ -108,7 +125,7 @@ if __name__ == '__main__':
     training_parameters['pad_token'] = -1000
     training_parameters['loss_fn'] = 'MSE'
     training_parameters['learning_rate'] = 0.001
-    training_parameters['epochs'] = 4000
+    training_parameters['epochs'] = 2
     training_parameters['seed'] = 666
     training_parameters['use_timbre'] = True
     training_parameters['N_latents_src'] = 8
@@ -228,8 +245,8 @@ if __name__ == '__main__':
     pitchIndexTgt = features_target.index("pitch")
     durationIndexSrc = features_source.index("event_duration")
     durationIndexTgt = features_target.index("event_duration")
-    latentIndexSrc = [features_source.index(f"latents-{j}") for j in range(training_parameters['N_latents_src'])]
-    latentIndexTgt = [features_source.index(f"latents-{j}") for j in range(training_parameters['N_latents_tgt'])]
+    latentIndexSrc = [features_source.index(f"latent-{j}") for j in range(training_parameters['N_latents_src'])]
+    latentIndexTgt = [features_source.index(f"latent-{j}") for j in range(training_parameters['N_latents_tgt'])]
     new_data = []
     for datum in data:
         if datum[0].shape[0] > 0 and datum[1].shape[0] > 0:
@@ -406,7 +423,7 @@ if __name__ == '__main__':
     model_load_path = f'{logdir}/best_model.pth'
     model.load_state_dict(torch.load(model_load_path, weights_only=True))
     # CUT SEQUENCE LENGTH
-    MAX_SEQ_LEN = training_parameters['max_sequence_length']
+    MAX_SEQ_LEN = training_log['max_sequence_length']
     new_data = []
     for datum in non_augmented_data:
         if datum[0].shape[0] > 0 and datum[1].shape[0] > 0:
@@ -441,18 +458,24 @@ if __name__ == '__main__':
     train_data = train_data[:int(len(train_data)*(1-val_perc))]
 
     # make training batches
-    batch_size = training_parameters['batch_size']
+    batch_size = 8
     train_dataloader = batchify(train_data, batch_size)
     val_dataloader = batchify(val_data, batch_size)
     test_dataloader = batchify(test_data, batch_size)
 
     # compute R2 score
     train_loss = validationLoop(model, train_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
+    train_r2 = evaluateR2Loop(model, train_dataloader, device, training_parameters['pad_token'], tgt_scaler)
     evaluation_metrics['training_MSE'] = train_loss
+    evaluation_metrics['training_R2'] = train_r2
     validation_loss = validationLoop(model, val_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
+    validation_r2 = evaluateR2Loop(model, val_dataloader, device, training_parameters['pad_token'], tgt_scaler)
     evaluation_metrics['validation_MSE'] = validation_loss
+    evaluation_metrics['validation_R2'] = validation_r2
     test_loss = validationLoop(model, test_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
+    test_r2 = evaluateR2Loop(model, test_dataloader, device, training_parameters['pad_token'], tgt_scaler)
     evaluation_metrics['test_MSE'] = test_loss
+    evaluation_metrics['test_R2'] = test_r2
     with open(f'{logdir}/evaluation.json', 'w', encoding='utf-8') as f:
         json.dump(evaluation_metrics, f, ensure_ascii=False, indent=4)
 
