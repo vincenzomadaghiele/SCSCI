@@ -87,8 +87,9 @@ def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNT
             synth.setParameters(timbre_param_names, predicted_parameters.tolist())
             if frequency_param_name in param_names:
                 synth.setParameters([frequency_param_name], [event['pitch']])
-            synth.setParameters([gain_param_name], [float(np.clip(event['rms']*5, 0, 1))])
-            synth.setParameters(envelope_param_names, [0.3, 0.3, 0.2, 0.1])
+            # synth.setParameters([gain_param_name], [float(np.clip(event['rms']*20, 0, 1))])
+            synth.setParameters([gain_param_name], [float(event['rms']*20)])
+            synth.setParameters(envelope_param_names, [0.9, 0.9, 0.8, 0.5])
             event['event_duration'] = np.clip(event['event_duration'], min_event_duration_samples, max_event_duration_samples)
             synthesized_event = synth.forward( event['event_duration'] / sr ) 
             synth.close()

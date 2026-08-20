@@ -51,40 +51,23 @@ if __name__ == "__main__":
     # LOAD NORMALIZING FLOW MODEL FOR TGT ENCODING AND DECODING
     SYNTH_NAME = 'TimbreTheremin'
     flow_model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
-
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     flow_model = torch.load(f'{model_path}/{flow_model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
     flow_model.eval()
-    # LOAD DATASET STATS FOR NORMALIZATION
-    data_stats_path = f'./synth/datasets/{SYNTH_NAME}/means.json'
-    with open(f'./synth/datasets/{SYNTH_NAME}/means.json') as f:
-        d = json.load(f)
-        mean = d['mel']
-    with open(f'./synth/datasets/{SYNTH_NAME}/vars.json') as f:
-        d = json.load(f)
-        var = d['mel']
-
-    # ESTABLISH FEATURES FOR TRANSFORMER
-    N_latents_src = 8
-    N_latents_tgt = 2
-    features_source = [f'latent-{j}' for j in range(N_latents_src)]
-    features_source.append('rms')
-    features_source.append('pitch')
-    features_source.append('event_duration')
-    features_target = [f'latent-{j}' for j in range(N_latents_tgt)]
-    features_target.append('rms')
-    features_target.append('pitch')
-    features_target.append('event_duration')
-
-    # features_source = ['rms', 'pitch', 'event_duration']
-    # features_target = ['rms', 'pitch', 'event_duration']
-
 
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
     transformer_name = '1787065706-transformerDiscreteT2V'
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
+
+    # ESTABLISH FEATURES FOR TRANSFORMER
+    N_latents_src = training_parameters['N_latents_src']
+    N_latents_tgt = training_parameters['N_latents_tgt']
+    features_source = training_parameters['features_source']
+    features_target = training_parameters['features_target']
+
+    # TRANSFORMER
     model_load_path = f'{model_dir}/best_model.pth'
     model = TransformerDiscreteT2V(
             num_featuresin=len(features_source)+1,
@@ -104,7 +87,6 @@ if __name__ == "__main__":
     tgt_scaler = joblib.load(f'{model_dir}/target_scaler.pkl')
     src_time_scaler = joblib.load(f'{model_dir}/source_time_scaler.pkl')
     tgt_time_scaler = joblib.load(f'{model_dir}/target_time_scaler.pkl')
-
 
     # START AUDIO GRAPH
     config = AudioGraphConfig()
@@ -354,7 +336,6 @@ if __name__ == "__main__":
                             # (3.5) event previous that keeps going into next window
                             pass
 
-
             # CHECK IF IT IS TIME TO GENERATE NEW OUTPUT
             if tgt_samples_left - inference_time_samples < FFT_window:
                 # STOP CURRENT PLAYBACK
@@ -392,7 +373,6 @@ if __name__ == "__main__":
 
                 MIDI = int(69 + 12 * math.log2(pred_frequency/440))
                 pred_frequency = 440 * 2**((MIDI - 69)/12) # tune to scale
-
 
                 y_pred[N_latents_tgt] = pred_rms
                 y_pred[N_latents_tgt+1] = pred_frequency
@@ -522,5 +502,14 @@ if __name__ == "__main__":
         df_tgt['filename'] = [f'{save_dir}/performance_tgt.wav' for _ in range(df_tgt.values.shape[0])]
         plotEvents(df_tgt, sr, save_dir=save_dir, isDfin=True)
         plotPairedEvents(df_src, df_tgt, sr, save_dir=save_dir, isDfin=True)
+
+        # PLOT PATH ON THE VAE TIMBRE SPACE
+        from seq2seq_resynthesize import plotFlowTimbre, plotVAETimbre
+        VAE_latents = df_src[[f'latent-{j}' for j in range(N_latents_src)]].values
+        X = np.load(f'./corpus/{corpus_name}/trained_VAE/latents.npy')
+        plotVAETimbre(X, VAE_latents, save_dir)
+        flow_latents = df_tgt[[f'latent-{j}' for j in range(N_latents_tgt)]].values
+        X = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{flow_model_name}/latents.npy')
+        plotFlowTimbre(X, flow_latents, save_dir)
 
         print('Finished performance')

@@ -26,7 +26,7 @@ class Granular(Patch):
 
         # scale parameters
         # buf = Buffer("./synth/patches/samples/bowed-guitar.wav")
-        buf = Buffer("./patches/samples/tibetan-ball.wav")
+        buf = Buffer("./synth/patches/samples/tibetan-ball.wav")
         # buf = Buffer(sample_path)
         # frequency = ScaleLinExp(input=frequency, a=50, b=11050, c=1, d=50)
         # gain = -1 *(gain - 1)*(gain - 1) + 1 # exponential gain

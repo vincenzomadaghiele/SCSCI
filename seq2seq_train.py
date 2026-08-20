@@ -100,7 +100,8 @@ if __name__ == '__main__':
     corpus_path = f'corpus/{corpus_name}'
     src_track_name = 'guitar1'
     tgt_track_name = 'guitar2'
-    SYNTH_NAME = 'TimbreTheremin'
+    SYNTH_NAME = 'Granular'
+
     with open(f"synth/params/{SYNTH_NAME}.txt", "r") as file:
         params = file.readlines()
     N_latents_tgt = len(params) # num of target latents is the same as the number of parameters
@@ -159,7 +160,7 @@ if __name__ == '__main__':
 
     # LOAD CORPUS
     source_corpus_df = pd.read_csv(f"{corpus_path}/src_events.csv", index_col=0)
-    target_corpus_df = pd.read_csv(f"{corpus_path}/tgt_events.csv", index_col=0)
+    target_corpus_df = pd.read_csv(f"{corpus_path}/tgt_events_{SYNTH_NAME}.csv", index_col=0)
     src_signals_dfs = []
     tgt_signals_dfs = []
     unique_src_filenames = source_corpus_df['filename'].unique()

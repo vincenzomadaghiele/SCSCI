@@ -110,7 +110,7 @@ if __name__ == '__main__':
     columns += ['rms', 'pitch', 'event_duration', 'event_start', 'filename']
     df_tgt = pd.DataFrame(tgt_events, columns=columns)
     print(df_tgt.head())
-    df_tgt.to_csv(f"{corpus_path}/tgt_events.csv")
+    df_tgt.to_csv(f"{corpus_path}/tgt_events_{SYNTH_NAME}.csv")
 
     # resynthesize target files
     for song in tgt_corpus_files:
