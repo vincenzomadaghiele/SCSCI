@@ -228,6 +228,8 @@ def generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_mode
     df_tgt["event_start"] = tgt_past_events_starttimes
     print(df_tgt.head())
     df_tgt.to_csv(f"{results_dir}/{song_name}_{SYNTH_NAME}_tgt_events.csv")
+    return df_tgt
+
 
 np.set_printoptions(precision=3, suppress=True)
 

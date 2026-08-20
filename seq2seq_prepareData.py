@@ -10,9 +10,7 @@ import matplotlib.pyplot as plt
 from CONSTANTS import * 
 from VAE_train import Encoder, Decoder, Model
 
-from synth.synths import Synth
-from seq2seq_resynthesize import melToVAElatents, melToFlowLatents
-from seq2seq_resynthesize import resynthesizeFlowVAE, plotDualWaveform, plotFlowTimbre, plotVAETimbre
+from seq2seq_resynthesize import resynthesizeFlowVAE, plotDualWaveform, plotFlowTimbre, plotVAETimbre, melToVAElatents, melToFlowLatents
 
 if __name__ == '__main__': 
 

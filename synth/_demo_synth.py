@@ -51,23 +51,33 @@ if __name__ == "__main__":
     graph = AudioGraph(output_device=AudioOut_Dummy(2), start=False)
 
     # SYNTH
-    synth = TimbreTheremin() 
+    from patches.granular import Granular
+    # synth = TimbreTheremin()
+
+
+    import librosa
+    sample_path = "./patches/samples/tibetan-ball.wav"
+    sample, _ = librosa.load(sample_path, sr=graph.sample_rate, mono=True)
+    pitch = librosa.yin(sample, fmin=200, fmax=graph.sample_rate/2, sr=graph.sample_rate, frame_length=graph.output_buffer_size*2, hop_length=graph.output_buffer_size)
+    pitch = [p for p in pitch.tolist() if p != graph.sample_rate]
+    base_pitch_hz = np.array(pitch).mean()
+
+    synth = Granular(sample_path, base_pitch_hz) 
     parameters_names = list(synth.inputs.keys())
     # THESE ARE THE SAME FOR ALL SYNTHS
     frequency_param_name = "frequency"
     gain_param_name = "gain"
     gate_param_name = "gate"
-    duration_param_name = "D"
-    envelope_param_names = ['A','S','R']
+    envelope_param_names = ['A','D','S','R']
     # THESE CAN CHANGE AMONG SYNTHS
-    non_timbre_params_names = [frequency_param_name, gain_param_name, gate_param_name, duration_param_name]
+    non_timbre_params_names = [frequency_param_name, gain_param_name, gate_param_name]
     non_timbre_params_names += envelope_param_names
     print(non_timbre_params_names)
     timbre_param_names = [p for p in parameters_names if p not in non_timbre_params_names]
     print(timbre_param_names)
     # SET CONSTANT NON-TIMBRE PARAMS
     frequency = 440
-    gain = 0.8
+    gain = 1
     event_duration = 0.1 # seconds
 
     buffer_size = 1
@@ -77,14 +87,16 @@ if __name__ == "__main__":
     # set non-timbre parameters
     synth.set_input(frequency_param_name, frequency) 
     synth.set_input(gain_param_name, gain) 
-    synth.set_input(duration_param_name, event_duration) 
-    synth.set_input(envelope_param_names[0], 0.2) 
-    synth.set_input(envelope_param_names[1], 0.2) 
-    synth.set_input(envelope_param_names[2], 0.2) 
+    synth.set_input(envelope_param_names[0], 0.1) 
+    synth.set_input(envelope_param_names[1], 0.1) 
+    synth.set_input(envelope_param_names[2], 0.1) 
+    synth.set_input(envelope_param_names[3], 0.1) 
     # set timbre parameters
-    timbre_parameters_values = np.random.rand(len(timbre_param_names)).tolist()
+    # timbre_parameters_values = np.random.rand(len(timbre_param_names)).tolist()
+    timbre_parameters_values = (np.ones(len(timbre_param_names)) * 0.1).tolist()
     for i, param_name in enumerate(timbre_param_names):
-        synth.set_input(param_name, timbre_parameters_values[i]) 
+        synth.set_input(param_name, timbre_parameters_values[i])
+    print(timbre_parameters_values)
     synth.set_input("gate", 1)
     synth.play()
     graph.render_to_buffer(buffer_event)

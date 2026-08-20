@@ -40,7 +40,7 @@ if __name__ == '__main__':
         permutations = ppp
 
     # COMPUTE COMMANDS TO EXTRACT SOUND
-    GAIN = 0.8
+    GAIN = 2
     FREQUENCY = 220
     DURATION = RECORDING_TIME / 2
     ADSR = '0.5-0.5-0.5-0.5'

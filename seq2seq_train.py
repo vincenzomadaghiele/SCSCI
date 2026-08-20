@@ -125,7 +125,7 @@ if __name__ == '__main__':
     training_parameters['pad_token'] = -1000
     training_parameters['loss_fn'] = 'MSE'
     training_parameters['learning_rate'] = 0.001
-    training_parameters['epochs'] = 1
+    training_parameters['epochs'] = 1000
     training_parameters['seed'] = 666
     training_parameters['use_timbre'] = True
     training_parameters['N_latents_src'] = 8
@@ -242,7 +242,7 @@ if __name__ == '__main__':
     latentsTranspose = False
     maskAugment = False
     randomSubstitute = True
-    NUM_AUGMENT = 20
+    NUM_AUGMENT = 10
     rmsIndexSrc = features_source.index("rms")
     rmsIndexTgt = features_target.index("rms")
     pitchIndexSrc = features_source.index("pitch")
@@ -481,6 +481,7 @@ if __name__ == '__main__':
     
     from VAE_train import Encoder, Decoder, Model
     from seq2seq_generate_coimpro import generateCoImprovisation
+    from seq2seq_resynthesize import plotFlowTimbre
 
     training_parameters['max_sequence_length'] = MAX_SEQ_LEN 
 
@@ -508,7 +509,12 @@ if __name__ == '__main__':
     N_GEN_COIMPRO = 4
     for filename in common_filenames[:N_GEN_COIMPRO]:
         src_audio_filepath = f"{training_parameters['sound_corpus_path']}/{filename}/{training_parameters['target_track_name']}.wav"
-        generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_model, model.to(device), 
-                                training_parameters, src_scaler, tgt_scaler, src_time_scaler, tgt_time_scaler,
-                                training_parameters['use_timbre'], device, logdir)
+        df_tgt = generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_model, model.to(device), 
+                                        training_parameters, src_scaler, tgt_scaler, src_time_scaler, tgt_time_scaler,
+                                        training_parameters['use_timbre'], device, logdir)
         # print maps over latent space PCA
+
+        X = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{flow_model_name}/latents.npy')
+        columns = [f'latent-{j}' for j in range(N_latents_tgt)]
+        flow_latents = df_tgt[columns].values
+        plotFlowTimbre(X, flow_latents, f'{logdir}/00_results/{filename}')

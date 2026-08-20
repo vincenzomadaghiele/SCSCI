@@ -5,10 +5,11 @@ from signalflow import *
 import numpy as np
 import soundfile as sf
 import matplotlib.pyplot as plt
-from synth.patches.benjolin import Benjolin
-from synth.patches.granular import Granular
-from synth.patches.snare import Snare
-from synth.patches.timbreTheremin import TimbreTheremin
+from patches.benjolin import Benjolin
+from patches.granular import Granular
+from patches.snare import Snare
+from patches.timbreTheremin import TimbreTheremin
+from patches.karplusStrong import KarplusStrong
 
 # from CONSTANTS import *
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -32,12 +33,14 @@ class Synth:
         self.graph = AudioGraph(output_device=AudioOut_Dummy(2), start=False)
         if self.synth_name == 'Benjolin':
             self.synth = Benjolin(self.graph) 
+        elif self.synth_name == 'KarplusStrong':
+            self.synth = KarplusStrong(self.graph) 
         elif self.synth_name == 'Granular':
             import librosa
             sample_path = "./patches/samples/tibetan-ball.wav"
             sample, _ = librosa.load(sample_path, sr=self.graph.sample_rate, mono=True)
-            pitch = librosa.yin(sample, fmin=200, fmax=self.graph.sample_rate/2, sr=self.graph.sample_rate, 
-                                frame_length=self.config.output_buffer_size*2, hop_length=self.config.output_buffer_size)
+            pitch = librosa.yin(sample, fmin=100, fmax=11000, sr=self.graph.sample_rate, 
+                                frame_length=self.graph.output_buffer_size*4, hop_length=self.graph.output_buffer_size)
             pitch = [p for p in pitch.tolist() if p != self.graph.sample_rate]
             self.base_pitch_hz = float(np.array(pitch).mean())
             self.synth = Granular(sample_path, self.base_pitch_hz) 
@@ -60,7 +63,6 @@ class Synth:
     def setParameters(self, new_parameters_names: list, new_parameters_values: list):
         for i, param_name in enumerate(new_parameters_names):
             self.synth.set_input(param_name, new_parameters_values[i]) 
-            # print(f'{param_name}: {new_parameters_values[i]}')
     def getInputs(self):
         return list(self.synth.inputs.keys())
     def resetGraph(self):
@@ -77,8 +79,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--SYNTH_NAME', type=str, default='Theremin', help='synth name among Theremin, Granular, Benjolin, Snare')
     parser.add_argument('--SAVE_FILEPATH', type=str, default='./datasets', help='path of where to save the soundfile')
-    parser.add_argument('--GAIN', type=float, default=440, help='value of gain parameter of synth [in Hz]')
-    parser.add_argument('--FREQUENCY', type=float, default=0.8, help='value of frequency parameter (if available in synth) [0-1]')
+    parser.add_argument('--GAIN', type=float, default=0.1, help='value of gain parameter of synth [0-1]]')
+    parser.add_argument('--FREQUENCY', type=float, default=220, help='value of frequency parameter (if available in synth) [Hz]')
     parser.add_argument('--DURATION', type=float, default=0.1, help='duration of synthesized event in seconds')
     parser.add_argument('--ADSR', type=str, default='0.1-0.1-0.1-0.1', help='ASR envelope parameter values [0-1]')
     parser.add_argument('--TIMBRE_PARAMETERS', type=str, default='0.5-0.5-0.5-0.5-0.5-0.5', help='values timbre parameters [0-1]')
@@ -110,7 +112,7 @@ if __name__ == "__main__":
     N_timbre_params = len(timbre_param_names)
     synth.setParameters(timbre_param_names, timbre_parameter_values)
     non_timbre_params_names.remove("gate")
-    synth.setParameters(non_timbre_params_names, [args.GAIN, args.FREQUENCY, args.DURATION, ADSR[0], ADSR[1], ADSR[2], ADSR[3]])
+    synth.setParameters(non_timbre_params_names, [args.FREQUENCY, args.GAIN, args.DURATION, ADSR[0], ADSR[1], ADSR[2], ADSR[3]])
     if frequency_param_name in parameters_names:
         synth.setParameters([frequency_param_name], [args.FREQUENCY])
 

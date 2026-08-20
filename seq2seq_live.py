@@ -16,8 +16,7 @@ from synth.patches.timbreTheremin import TimbreTheremin
 from transformer.transformerDiscreteT2V import TransformerDiscreteT2V
 from VAE_train import Encoder, Decoder, Model
 from corpus.extract_events import detectOnsets
-from resynthesize import melToVAElatents
-
+from seq2seq_resynthesize import melToVAElatents
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -82,7 +81,7 @@ if __name__ == "__main__":
 
 
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
-    transformer_name = '1786989331-transformerDiscreteT2V'
+    transformer_name = '1787065706-transformerDiscreteT2V'
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
