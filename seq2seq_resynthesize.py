@@ -61,7 +61,8 @@ def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNT
                         latents_min=None, latents_max=None):
 
     # LOAD SYNTH
-    RECORDING_TIME = int(melspec_size_flow * FFT_window / sr)
+    # RECORDING_TIME = int(melspec_size_flow * FFT_window / sr)
+    RECORDING_TIME = (max_event_duration_samples / sr) + 1
     synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
     param_names = synth.getInputs()
     timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
@@ -179,7 +180,7 @@ def plotVAETimbre(full_VAE_latents, VAE_latents_path, SAVE_FILEPATH):
 if __name__ == '__main__': 
 
     # save models by synth
-    SYNTH_NAME = 'Granular'
+    SYNTH_NAME = 'FM'
     corpus_name = 'petter-bass'
     song_name = 'improv4'
     tgt_track_name = 'bass'

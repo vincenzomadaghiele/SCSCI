@@ -66,7 +66,7 @@ class Granular(Patch):
                                 max_grains = 2048,
                                 wrap = True)
         granulator.set_buffer("envelope", EnvelopeBuffer("triangle"))
-        output = granulator * env * gain * 2
+        output = granulator * env * gain
 
         # forward
         self.set_output(output)

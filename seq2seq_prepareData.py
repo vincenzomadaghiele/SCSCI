@@ -17,9 +17,9 @@ if __name__ == '__main__':
     DEVICE = torch.device("cpu")
 
     # LOAD EVENT SEQUENCES CORPUS
-    corpus_name = 'petter-bass'
-    src_track_name = 'bass'
-    tgt_track_name = 'bass copy'
+    corpus_name = 'guitar-duo'
+    src_track_name = 'guitar1'
+    tgt_track_name = 'guitar2'
     corpus_path = f'corpus/{corpus_name}'
     song_names = os.listdir(corpus_path)
     song_names = [c for c in song_names if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full','finetune']]
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     VAE_model.eval()
 
     # LOAD FLOW MODEL
-    SYNTH_NAME = 'Granular'
+    SYNTH_NAME = 'FM'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)

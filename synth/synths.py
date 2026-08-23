@@ -5,12 +5,12 @@ from signalflow import *
 import numpy as np
 import soundfile as sf
 import matplotlib.pyplot as plt
-from patches.benjolin import Benjolin
-from patches.granular import Granular
-from patches.FM import FM
-from patches.snare import Snare
-from patches.timbreTheremin import TimbreTheremin
-from patches.karplusStrong import KarplusStrong
+from synth.patches.benjolin import Benjolin
+from synth.patches.granular import Granular
+from synth.patches.FM import FM
+from synth.patches.snare import Snare
+from synth.patches.timbreTheremin import TimbreTheremin
+from synth.patches.karplusStrong import KarplusStrong
 
 # from CONSTANTS import *
 # sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -21,7 +21,7 @@ class Synth:
                 synth_name: str,
                 sample_rate = 44100,
                 hop_size = 512,
-                buffer_size = 1
+                buffer_size = 2
                 ):
         self.config = AudioGraphConfig()
         self.config.sample_rate = sample_rate
@@ -53,6 +53,7 @@ class Synth:
             self.synth = TimbreTheremin() 
     def forward(self, event_duration=0.1):
         buffer_event = Buffer(1, int(self.graph.sample_rate * event_duration))
+        # print(self.graph.sample_rate, self.buffer_size-event_duration)
         buffer_decay = Buffer(1, int(self.graph.sample_rate * (self.buffer_size-event_duration)))
         self.synth.set_input("gate", 1)
         self.synth.play()
