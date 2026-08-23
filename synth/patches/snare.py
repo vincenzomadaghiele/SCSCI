@@ -40,10 +40,8 @@ class Snare(Patch):
         output = (filter_1 + filter_2) * gain
 
         # forward
-        # self.set_trigger_node(env)
         self.set_output(output)
         self.set_auto_free(True)
-        # self.set_auto_free(False)
 
 if __name__ == "__main__":
 
@@ -60,7 +58,7 @@ if __name__ == "__main__":
     N_params = len(param_names)
 
     # PLAYBACK PROPERTIES
-    metro = 0.6
+    metro = 0.3
     random_metro = 0.5
     NUM_VOICES = 10
     MAX_DURATION = 4

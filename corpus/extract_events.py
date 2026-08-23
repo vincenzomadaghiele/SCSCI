@@ -5,7 +5,7 @@ import librosa
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from corpus.onset_detect import OnsetDetection
+from onset_detect import OnsetDetection
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from CONSTANTS import *
@@ -354,10 +354,10 @@ def extractEvents(signal,
 if __name__ == "__main__":
 
 	# extract 
-	corpus_name = 'guitar-duo'
-	src_track_name = 'guitar1'
-	tgt_track_name = 'guitar2'
-	corpus_path = f'corpus/{corpus_name}'
+	corpus_name = 'petter-bass'
+	src_track_name = 'bass'
+	tgt_track_name = 'bass copy'
+	corpus_path = f'./{corpus_name}'
 	corpus_dirs = os.listdir(corpus_path)
 	src_tgt = []
 	for track_name in [src_track_name, tgt_track_name]:

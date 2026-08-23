@@ -20,12 +20,14 @@ these are mapped:
 
 SYNTHS provided:
 - timbre theremin (with pitch)
+- FM (with pitch)
+- granular (with pitch)
+- benjolin (no pitch)
+- chaotic FM (no pitch)
+
 - snare (no pitch)
 - risset bell (pitch)
 - karplus-strong (with pitch)
-- FM (with pitch)
-- event-granular (with pitch)
-- chaotic (no pitch)
 
 TODO:
 2. make all synths and train NF model for each

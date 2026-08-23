@@ -15,5 +15,6 @@
 **.pkl
 **.csv
 **.DS_Store
+**.RPP
 
 transformer/trained/**

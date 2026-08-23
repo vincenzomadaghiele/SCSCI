@@ -16,7 +16,7 @@ if __name__ == '__main__':
     RECORDING_TIME = 10
     sr = 44100
     hop_size = 256
-    SYNTH_NAME = 'Granular'
+    SYNTH_NAME = 'Benjolin'
     SAVE_FILEPATH = f'{SAVE_FILEPATH}/{SYNTH_NAME}'
     os.makedirs(SAVE_FILEPATH, exist_ok=True)
 
@@ -40,7 +40,7 @@ if __name__ == '__main__':
         permutations = ppp
 
     # COMPUTE COMMANDS TO EXTRACT SOUND
-    GAIN = 2
+    GAIN = 0.8
     FREQUENCY = 220
     DURATION = RECORDING_TIME / 2
     ADSR = '0.5-0.5-0.5-0.5'

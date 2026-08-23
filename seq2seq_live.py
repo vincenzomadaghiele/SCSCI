@@ -453,6 +453,7 @@ if __name__ == "__main__":
             time.sleep( update_interval_s - update_interval_s * 0.30) # reduce 30% time (not sure why..)
 
     except KeyboardInterrupt:
+        
         graph.stop_recording()
         end_time = time.time()
         print(f'total performance time: {end_time-start_time}')

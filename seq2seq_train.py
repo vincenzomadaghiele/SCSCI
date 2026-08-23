@@ -126,7 +126,7 @@ if __name__ == '__main__':
     training_parameters['pad_token'] = -1000
     training_parameters['loss_fn'] = 'MSE'
     training_parameters['learning_rate'] = 0.001
-    training_parameters['epochs'] = 1000
+    training_parameters['epochs'] = 4000
     training_parameters['seed'] = 666
     training_parameters['use_timbre'] = True
     training_parameters['N_latents_src'] = 8

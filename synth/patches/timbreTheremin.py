@@ -37,10 +37,10 @@ class TimbreTheremin(Patch):
         # env = ASREnvelope(A, S, R)
         output1 = (tri * sine_tri + sine * (1-sine_tri)) * 0.8
         output2 = (saw * saw_square + square * (1-saw_square)) * 0.2
-        # combined_output = (output1 + output2)
-        # filter = BiquadFilter(input=combined_output, filter_type='low_pass', cutoff=frequency, resonance=0.1, peak_gain=0.0)
-        # output = filter * env * gain
-        output = (output1 + output2) * env * gain
+        combined_output = (output1 + output2)
+        filter = BiquadFilter(input=combined_output, filter_type='low_pass', cutoff=frequency, resonance=0.9, peak_gain=0.0)
+        output = filter * env * gain
+        # output = (output1 + output2) * env * gain
 
         # forward
         self.set_output(output)

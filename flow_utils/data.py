@@ -438,6 +438,7 @@ def load_dataset(args, **kwargs):
         params = {'Theremin':'Theremin.txt', 
                   'TimbreTheremin':'TimbreTheremin.txt', 
                   'Granular':'Granular.txt',
+                  'FM':'FM.txt',
                   'Benjolin':'Benjolin.txt', 
                   'Snare':'Snare.txt'}
         with open('synth/params/' + params[args.dataset]) as f: # load list of parameters to not fix

@@ -57,7 +57,8 @@ def melToFlowLatents(mels, flow_model, mean, var, num_MELS=64, melspec_size=80):
     return z_tilde[0].detach().cpu().numpy(), predicted_parameters[0].detach().cpu().numpy()
 
 def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNTH_NAME, 
-                        latents_mean=None, latents_std=None, total_latents_mean=None, total_latents_std=None):
+                        latents_mean=None, latents_std=None, total_latents_mean=None, total_latents_std=None, 
+                        latents_min=None, latents_max=None):
 
     # LOAD SYNTH
     RECORDING_TIME = int(melspec_size_flow * FFT_window / sr)
@@ -78,8 +79,9 @@ def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNT
             VAE_latents.append(event_latents)
             # COMPUTE FLOW LATENTS
             z_tilde, predicted_parameters = melToFlowLatents(event['mel'], flow_model, flow_mean, flow_var)
-            if latents_mean is not None and latents_std is not None and total_latents_mean is not None and total_latents_std is not None:
+            if latents_mean is not None and latents_std is not None and total_latents_mean is not None and total_latents_std is not None and latents_min is not None and latents_max is not None:
                 z_tilde = (z_tilde - latents_mean) * (total_latents_std / latents_std) + total_latents_mean
+                event_latents = np.clip(z_tilde, latents_min, latents_max)
             event_latents = event_latents.tolist()
             flow_latents.append(z_tilde.tolist())
             # RE-SYNTHESIZE SOUND EVENT
@@ -88,8 +90,8 @@ def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNT
             if frequency_param_name in param_names:
                 synth.setParameters([frequency_param_name], [event['pitch']])
             # synth.setParameters([gain_param_name], [float(np.clip(event['rms']*20, 0, 1))])
-            synth.setParameters([gain_param_name], [float(event['rms']*20)])
-            synth.setParameters(envelope_param_names, [0.9, 0.9, 0.8, 0.5])
+            synth.setParameters([gain_param_name], [float(event['rms']*RMS_multiplier)])
+            synth.setParameters(envelope_param_names, ADSR_standard)
             event['event_duration'] = np.clip(event['event_duration'], min_event_duration_samples, max_event_duration_samples)
             synthesized_event = synth.forward( event['event_duration'] / sr ) 
             synth.close()
@@ -177,10 +179,10 @@ def plotVAETimbre(full_VAE_latents, VAE_latents_path, SAVE_FILEPATH):
 if __name__ == '__main__': 
 
     # save models by synth
-    SYNTH_NAME = 'TimbreTheremin'
-    corpus_name = 'guitar-duo'
-    song_name = 'recording5'
-    tgt_track_name = 'guitar2'
+    SYNTH_NAME = 'Granular'
+    corpus_name = 'petter-bass'
+    song_name = 'improv4'
+    tgt_track_name = 'bass'
 
     # LOAD FLOW MODEL
     device = torch.device('cpu')

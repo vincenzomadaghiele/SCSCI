@@ -9,10 +9,10 @@ class Granular(Patch):
                  parameter_values: list = [0,0,0,0,0,0,0,0,0,0,0,0,0]):
         super().__init__()
 
-        frequency = self.add_input("density", parameter_values[0])
+        density = self.add_input("density", parameter_values[0])
         duration = self.add_input("grain-duration", parameter_values[1])
         position = self.add_input("start-position", parameter_values[2])
-        rate = self.add_input("frequency", parameter_values[3])
+        rate = self.add_input("frequency", parameter_values[3]) # in Hz
         position_variance = self.add_input("position_variance", parameter_values[4])
         duration_variance = self.add_input("duration_variance", parameter_values[5])
         rate_variance = self.add_input("rate_variance", parameter_values[6])
@@ -20,16 +20,18 @@ class Granular(Patch):
         gain = self.add_input("gain", parameter_values[8])
         A = self.add_input(f"A", parameter_values[9])
         D = self.add_input(f"D", parameter_values[10])
-        S = self.add_input(f"S", parameter_values[10])
-        R = self.add_input(f"R", parameter_values[11])
+        S = self.add_input(f"S", parameter_values[11])
+        R = self.add_input(f"R", parameter_values[12])
         gate = self.add_input("gate", 1.0)
 
         # scale parameters
         # buf = Buffer("./synth/patches/samples/bowed-guitar.wav")
-        buf = Buffer("./synth/patches/samples/tibetan-ball.wav")
-        # buf = Buffer(sample_path)
+        # buf = Buffer("./synth/patches/samples/tibetan-ball.wav")
+        buf = Buffer(sample_path)
         # frequency = ScaleLinExp(input=frequency, a=50, b=11050, c=1, d=50)
         # gain = -1 *(gain - 1)*(gain - 1) + 1 # exponential gain
+        rate = Clip(rate, 50, 11050)
+        density = ScaleLinExp(input=density, a=0, b=1, c=1, d=200)
         duration = ScaleLinExp(input=duration, a=0, b=1, c=0.1, d=2)
         position = ScaleLinLin(input=position, a=0, b=1, c=0, d=int(buf.duration - (buf.duration/2)))
         position_variance = ScaleLinLin(input=position_variance, a=0, b=1, c=0, d=int(buf.duration/4))
@@ -43,9 +45,9 @@ class Granular(Patch):
 
         # define synthesizer
         env = ADSREnvelope(A, D, S, R, gate=gate)
-        grain_frequency = WhiteNoise(frequency=frequency, 
-                                     min=frequency-frequency*trigger_variance, 
-                                     max=frequency+frequency*trigger_variance)
+        grain_frequency = WhiteNoise(frequency=density, 
+                                     min=density-density*trigger_variance, 
+                                     max=density+density*trigger_variance)
         grain_frequency.set_seed(666)
 
         base_pitch_hz = 388
@@ -53,18 +55,18 @@ class Granular(Patch):
             rate = rate / base_pitch_hz # rate [50-11050]
         else:
             rate = ScaleLinExp(input=rate, a=0, b=1, c=0.3, d=4)
-        clock = Impulse(frequency=grain_frequency)
+        clock = Impulse(frequency=grain_frequency) * env
         granulator = Granulator(buffer = buf,
                                 clock = clock,
                                 pan = -1,
                                 amplitude = 1.0,
-                                pos = position + RandomUniform(-1*position_variance, position_variance, clock=clock),
-                                rate = rate + RandomUniform(-1*rate_variance, rate_variance, clock=clock),
-                                duration = duration + RandomUniform(-1*duration_variance, duration_variance, clock=clock),
+                                pos = position + RandomUniform(-1*position_variance, position_variance, clock=clock) * env,
+                                rate = rate + RandomUniform(-1*rate_variance, rate_variance, clock=clock) * env,
+                                duration = duration + RandomUniform(-1*duration_variance, duration_variance, clock=clock) * env,
                                 max_grains = 2048,
                                 wrap = True)
         granulator.set_buffer("envelope", EnvelopeBuffer("triangle"))
-        output = granulator * env * gain
+        output = granulator * env * gain * 2
 
         # forward
         self.set_output(output)
@@ -79,7 +81,8 @@ if __name__ == "__main__":
 
     # open sample and find base pitch
     import librosa
-    sample_path = "./patches/samples/tibetan-ball.wav"
+    # sample_path = "./synth/patches/samples/bowed-guitar.wav"
+    sample_path = "./synth/patches/samples/tibetan-ball.wav"
     sample, _ = librosa.load(sample_path, sr=graph.sample_rate, mono=True)
     pitch = librosa.yin(sample, fmin=200, fmax=graph.sample_rate/2, sr=graph.sample_rate, frame_length=config.output_buffer_size*2, hop_length=config.output_buffer_size)
     pitch = [p for p in pitch.tolist() if p != graph.sample_rate]
@@ -93,7 +96,7 @@ if __name__ == "__main__":
     N_params = len(param_names)
 
     # PLAYBACK PROPERTIES
-    metro = 0.3
+    metro = 0.4
     random_metro = 0.5
     NUM_VOICES = 10
     MAX_DURATION = 4
@@ -109,7 +112,6 @@ if __name__ == "__main__":
             if param_name == "frequency":
                 new_parameters[i] = math.log2(new_parameters[i]+1) * 11000 + 50
             voice.set_input(param_name, new_parameters[i]) 
-        print(new_parameters)
         voice.set_input("gain", 1 / NUM_VOICES)
         voice.set_input("gate", 1)
         voice.auto_free = True
@@ -125,5 +127,3 @@ if __name__ == "__main__":
             voices[k].set_input("gate", 0)
             durations[k] = 0
         time.sleep(metro + random.random() * random_metro)
-
-

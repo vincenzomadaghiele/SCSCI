@@ -149,8 +149,9 @@ def generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_mode
         else:
             synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
             synth.setParameters(['frequency'], [pred_frequency])
-            synth.setParameters(['gain'], [float(np.clip(pred_rms*5, 0, 1))])
-            synth.setParameters(envelope_param_names, [0.3, 0.3, 0.2, 0.1])
+            # synth.setParameters(['gain'], [float(np.clip(pred_rms*20, 0, 1))])
+            synth.setParameters(['gain'], [float(pred_rms*RMS_multiplier, 0, 1)])
+            synth.setParameters(envelope_param_names, ADSR_standard)
             if useTimbre:
                 next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
                 with torch.no_grad():

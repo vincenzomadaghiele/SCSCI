@@ -1,6 +1,6 @@
 # CONSTANTS
 sr = 22050
-FFT_window = 2048
+FFT_window = 512
 hop_size = 256
 num_MFCC = 16
 num_MEL = 64
@@ -18,3 +18,6 @@ non_timbre_params_names = [frequency_param_name,
                            gain_param_name, 
                            gate_param_name]
 non_timbre_params_names += envelope_param_names
+
+RMS_multiplier = 5.0
+ADSR_standard = [0.2, 0.9, 0.8, 0.5]

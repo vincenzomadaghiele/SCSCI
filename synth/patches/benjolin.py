@@ -2,7 +2,7 @@ from signalflow import *
 import time
 import numpy as np
 import random
-
+import math
 
 class Rungler(Patch):
     def __init__(self, PULSE1, PULSE2, graph):
@@ -32,7 +32,7 @@ class Benjolin(Patch):
     def __init__(self, graph: AudioGraph, parameter_values: list = [0,0,0,0,0,0,0,0,0,0,0,0,0]):
         super().__init__()
 
-        FRQ01 = self.add_input("frequency", parameter_values[0])
+        FRQ01 = self.add_input("frequency", parameter_values[0]) # in Hz
         FRQ02 = self.add_input("FRQ02", parameter_values[1])
         RUN01 = self.add_input("RUN01", parameter_values[2])
         RUN02 = self.add_input("RUN02", parameter_values[3])
@@ -48,9 +48,10 @@ class Benjolin(Patch):
         gate = self.add_input("gate", 1.0)
 
         ## PARAMETERS
-        # FRQ01 = Clip(FRQ01, 50, 11050)
+        FRQ01 = Clip(FRQ01, 50, 11050)
         # FRQ01 = FrequencyToMidiNote(FRQ01)
-        FRQ01 = ScaleLinLin(input=FRQ01, a=0, b=1, c=0, d=127)
+        FRQ01 = FrequencyToMidiNote(FRQ01)
+        # FRQ01 = ScaleLinLin(input=FRQ01, a=0, b=1, c=0, d=127)
         FRQ02 = ScaleLinLin(input=FRQ02, a=0, b=1, c=0, d=127)
         RUN01 = ScaleLinLin(input=RUN01, a=0, b=1, c=0, d=127)
         RUN02 = ScaleLinLin(input=RUN02, a=0, b=1, c=0, d=127)
@@ -132,6 +133,8 @@ if __name__ == "__main__":
         voice = Benjolin(graph)
         new_parameters = np.random.rand(N_params).tolist()
         for i, param_name in enumerate(param_names):
+            if param_name == "frequency":
+                new_parameters[i] = math.log2(new_parameters[i]+1) * 11000 + 50
             voice.set_input(param_name, new_parameters[i]) 
         voice.set_input("gain", 1 / NUM_VOICES)
         voice.set_input("gate", 1)
@@ -148,5 +151,3 @@ if __name__ == "__main__":
             voices[k].set_input("gate", 0)
             durations[k] = 0
         time.sleep(metro + random.random() * random_metro)
-
-
