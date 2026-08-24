@@ -100,7 +100,7 @@ if __name__ == '__main__':
     corpus_path = f'corpus/{corpus_name}'
     src_track_name = 'guitar1'
     tgt_track_name = 'guitar2'
-    SYNTH_NAME = 'Granular'
+    SYNTH_NAME = 'FM'
 
     with open(f"synth/params/{SYNTH_NAME}.txt", "r") as file:
         params = file.readlines()
@@ -131,6 +131,7 @@ if __name__ == '__main__':
     training_parameters['use_timbre'] = True
     training_parameters['N_latents_src'] = 8
     training_parameters['N_latents_tgt'] = N_latents_tgt
+    training_parameters['synth_name'] = SYNTH_NAME
     model_load_path = None
 
     random.seed(training_parameters['seed'])

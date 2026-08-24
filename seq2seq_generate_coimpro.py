@@ -31,13 +31,14 @@ def makeCrownWindow(size, fade_perc = 0.01):
 def generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_model, model, 
                             training_parameters, 
                             src_scaler, tgt_scaler, src_time_scaler, tgt_time_scaler, 
-                            useTimbre=True, DEVICE='cpu', model_dir=''):
+                            useTimbre=True, DEVICE='cpu', model_dir='.'):
 
     src_signal, _ = librosa.load(src_audio_filepath, sr=sr, mono=True)
     song_name = src_audio_filepath.split('/')[-2]
 
     # LOAD SYNTH
-    RECORDING_TIME = int(melspec_size_flow * FFT_window / sr)
+    # RECORDING_TIME = int(melspec_size_flow * FFT_window / sr)
+    RECORDING_TIME = int(max_event_duration_samples / sr) + 1
     synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
     param_names = synth.getInputs()
     timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
@@ -150,7 +151,7 @@ def generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_mode
             synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
             synth.setParameters(['frequency'], [pred_frequency])
             # synth.setParameters(['gain'], [float(np.clip(pred_rms*20, 0, 1))])
-            synth.setParameters(['gain'], [float(pred_rms*RMS_multiplier, 0, 1)])
+            synth.setParameters(['gain'], [float(pred_rms*RMS_multiplier)])
             synth.setParameters(envelope_param_names, ADSR_standard)
             if useTimbre:
                 next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
@@ -240,9 +241,9 @@ if __name__ == '__main__':
     DEVICE = torch.device("cpu")
     corpus_name = 'guitar-duo'
     src_track_name = 'guitar1'
-    SYNTH_NAME = 'TimbreTheremin'
-    transformer_name = '1787065997-transformerDiscreteT2V'
-    song_name = 'recording7'
+    SYNTH_NAME = 'Granular'
+    transformer_name = '1787506669-transformerDiscreteT2V'
+    song_name = 'recording6'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
     # LOAD TRANSFORMER
@@ -250,9 +251,9 @@ if __name__ == '__main__':
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
     model_load_path = f'{model_dir}/best_model.pth'
-    training_parameters['use_timbre'] = True
-    training_parameters['N_latents_src'] = 8
-    training_parameters['N_latents_tgt'] = 2
+    # training_parameters['use_timbre'] = True
+    # training_parameters['N_latents_src'] = 8
+    # training_parameters['N_latents_tgt'] = 7
     if training_parameters['use_timbre']:
         N_latents_tgt = training_parameters['N_latents_tgt']
         features_source = [f'latent-{j}' for j in range(training_parameters['N_latents_src'])]
@@ -308,4 +309,4 @@ if __name__ == '__main__':
     generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_model, seq2seq_model, 
                             training_parameters, 
                             src_scaler, tgt_scaler, src_time_scaler, tgt_time_scaler, 
-                            training_parameters['use_timbre'], DEVICE)
+                            training_parameters['use_timbre'], DEVICE, model_dir)

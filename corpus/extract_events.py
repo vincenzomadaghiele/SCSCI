@@ -72,7 +72,9 @@ def computeEventFeatures(signal, onsets, sample_rate, FFT_window_size, hop_size,
 			base_pitch = librosa.hz_to_midi(BASE_FREQ)
 			this_pitch = librosa.hz_to_midi(pitch.mean())
 			this_onset_signal = librosa.effects.pitch_shift(this_onset_signal, sr=sr, n_steps=this_pitch-base_pitch)
-		mel = librosa.feature.melspectrogram(y=this_onset_signal, sr=sample_rate, n_fft=FFT_window_size, n_mels=mels_N, hop_length=hop_size, fmin=30, fmax=11000)
+		mel = librosa.feature.melspectrogram(y=this_onset_signal, sr=sample_rate, n_fft=512, 
+									#    n_fft=FFT_window_size, 
+									   n_mels=mels_N, hop_length=hop_size, fmin=30, fmax=11000)
 		mel = mel[:mels_N, :max_frames]
 		# save
 		event_info['rms'] = rms.mean()
