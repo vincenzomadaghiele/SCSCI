@@ -17,9 +17,9 @@ if __name__ == '__main__':
     DEVICE = torch.device("cpu")
 
     # LOAD EVENT SEQUENCES CORPUS
-    corpus_name = 'guitar-duo'
-    src_track_name = 'guitar1'
-    tgt_track_name = 'guitar2'
+    corpus_name = 'petter-study'
+    src_track_name = 'petter-tgt'
+    tgt_track_name = 'petter-src'
     corpus_path = f'corpus/{corpus_name}'
     song_names = os.listdir(corpus_path)
     song_names = [c for c in song_names if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full','finetune']]

@@ -26,7 +26,7 @@ class Rungler(Patch):
         graph.add_node(FeedbackBufferWriter(buf, sh8, 0.05))
         RUNGLER = (sh6/8) + (sh7/4) + (sh8/2)
         self.output = RUNGLER
-        self.set_auto_free(True)
+        # self.set_auto_free(True)
 
 class Rung(Patch):
     def __init__(self, graph: AudioGraph, parameter_values: list = [0,0,0,0,0,0,0,0,0,0,0,0,0]):
@@ -81,9 +81,8 @@ class Rung(Patch):
         output = output * gain * env
 
         self.set_output(output)
-        # self.set_trigger_node(env)
-        self.set_auto_free(True)
-        # self.set_auto_free(False)
+        self.set_auto_free(False)
+        # self.set_auto_free(True)
 
 if __name__ == "__main__":
 

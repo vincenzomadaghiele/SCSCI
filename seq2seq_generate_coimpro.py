@@ -241,9 +241,9 @@ if __name__ == '__main__':
     DEVICE = torch.device("cpu")
     corpus_name = 'guitar-duo'
     src_track_name = 'guitar1'
-    SYNTH_NAME = 'Granular'
-    transformer_name = '1787506669-transformerDiscreteT2V'
-    song_name = 'recording6'
+    SYNTH_NAME = 'FM'
+    transformer_name = '1787682904-transformerDiscreteT2V'
+    song_name = 'recording5'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
     # LOAD TRANSFORMER

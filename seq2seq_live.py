@@ -13,6 +13,10 @@ from signalflow import *
 from CONSTANTS import * 
 
 from synth.patches.timbreTheremin import TimbreTheremin
+from synth.patches.FM import FM
+from synth.patches.rung import Rung
+from synth.patches.granular import Granular
+from synth.patches.benjolin import Benjolin
 from transformer.transformerDiscreteT2V import TransformerDiscreteT2V
 from VAE_train import Encoder, Decoder, Model
 from corpus.extract_events import detectOnsets
@@ -49,14 +53,16 @@ if __name__ == "__main__":
     VAE_model.eval()
 
     # LOAD NORMALIZING FLOW MODEL FOR TGT ENCODING AND DECODING
-    SYNTH_NAME = 'TimbreTheremin'
+    SYNTH_NAME = 'FM'
+    useTimbre = True
+    quantizePitch = True
     flow_model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     flow_model = torch.load(f'{model_path}/{flow_model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
     flow_model.eval()
 
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
-    transformer_name = '1787065706-transformerDiscreteT2V'
+    transformer_name = '1787682904-transformerDiscreteT2V'
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
@@ -92,8 +98,10 @@ if __name__ == "__main__":
     config = AudioGraphConfig()
     config.sample_rate = sr
     config.output_buffer_size = hop_size
-    config.output_device_name = "UltraLite-mk5"
-    config.input_device_name = "UltraLite-mk5"
+    # config.output_device_name = "UltraLite-mk5"
+    # config.input_device_name = "UltraLite-mk5"
+    config.output_device_name = "Scarlett 2i2 USB"
+    config.input_device_name = "Scarlett 2i2 USB"
     graph = AudioGraph(config)
     audio_in = AudioIn(1)
     audio_in = audio_in[0]
@@ -105,6 +113,20 @@ if __name__ == "__main__":
     # LOAD SYNTHESIZER
     if SYNTH_NAME == 'TimbreTheremin':
         synth = TimbreTheremin() 
+    elif SYNTH_NAME == 'FM':
+        synth = FM() 
+    elif SYNTH_NAME == 'Rung':
+        synth = Rung(graph) 
+    elif SYNTH_NAME == 'Benjolin':
+        synth = Benjolin(graph) 
+    elif SYNTH_NAME == 'Granular':
+        sample_path = "./synth/patches/samples/tibetan-ball.wav"
+        sample, _ = librosa.load(sample_path, sr=graph.sample_rate, mono=True)
+        pitch = librosa.yin(sample, fmin=100, fmax=11000, sr=graph.sample_rate, 
+                            frame_length=graph.output_buffer_size*4, hop_length=graph.output_buffer_size)
+        pitch = [p for p in pitch.tolist() if p != graph.sample_rate]
+        base_pitch_hz = float(np.array(pitch).mean())
+        synth = Granular(sample_path, base_pitch_hz) 
     synth.play()
     param_names = list(synth.inputs.keys())
     # THESE ARE THE SAME FOR ALL SYNTHS
@@ -117,12 +139,17 @@ if __name__ == "__main__":
     non_timbre_params_names += envelope_param_names
     timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
 
+    if useTimbre:
+        N_latents_tgt = training_parameters['N_latents_tgt']
+    else:
+        N_latents_tgt = 0
+
     # BUFFER FOR RECORDING SOUND
     update_interval_s = hop_size / sr
     input_buffer = Buffer(1, FFT_window)
     min_feedback_writer_delay = graph.output_buffer_size / graph.sample_rate # samples
     # graph.add_node(FeedbackBufferWriter(input_buffer, audio_in, min_feedback_writer_delay))
-    graph.add_node(HistoryBufferWriter(input_buffer, audio_in))
+    graph.add_node(HistoryBufferWriter(input_buffer, audio_in*2))
 
     # ARRAYS FOR SAVING INPUTS AND OUTPUTS
     WINDOW_N_SAMPLES = training_parameters['window_size_s'] * sr
@@ -136,7 +163,7 @@ if __name__ == "__main__":
     model_inference_time_s = 0.003
     inference_time_samples = model_inference_time_s * sr
     tgt_samples_left = 0
-    silence_threshold = 0.005 # SILENCE THREHSOLD NEEDS TO BE ADAPTED TO LIVE SITUATION
+    silence_threshold = 0.003 # SILENCE THREHSOLD NEEDS TO BE ADAPTED TO LIVE SITUATION
 
     # UTILS FUNCTION
     def detectRest(event):
@@ -371,8 +398,10 @@ if __name__ == "__main__":
                 pred_frequency = np.clip(y_pred[N_latents_tgt+1], 50, 11050)
                 pred_duration = int(np.clip(y_pred[N_latents_tgt+2], 882, 88200))
 
-                MIDI = int(69 + 12 * math.log2(pred_frequency/440))
-                pred_frequency = 440 * 2**((MIDI - 69)/12) # tune to scale
+                # quantize pitch
+                if quantizePitch:
+                    MIDI = int(69 + 12 * math.log2(pred_frequency/440))
+                    pred_frequency = 440 * 2**((MIDI - 69)/12) # tune to scale
 
                 y_pred[N_latents_tgt] = pred_rms
                 y_pred[N_latents_tgt+1] = pred_frequency
@@ -388,27 +417,39 @@ if __name__ == "__main__":
                     # y_pred = np.zeros_like(y_pred)
                     print(f'[{count_frames/sr:.3f}] SYNTH REST  | rms: {0:.3f}, pitch: {0:.3f}, duration: {pred_duration / sr:.3f}')
                 else:
-                    next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
-                    with torch.no_grad():
-                        predicted_parameters = flow_model.regression_model(next_latents) # parameters
-                    predicted_parameters = predicted_parameters[0].detach().cpu().numpy()
-                    # print(predicted_parameters)
                     if SYNTH_NAME == 'TimbreTheremin':
                         synth = TimbreTheremin() 
+                    elif SYNTH_NAME == 'FM':
+                        synth = FM() 
+                    # elif SYNTH_NAME == 'Rung':
+                    #     synth = Rung(graph) 
+                    # elif SYNTH_NAME == 'Benjolin':
+                    #     synth = Benjolin(graph) 
+                    elif SYNTH_NAME == 'Granular':
+                        sample_path = "./synth/patches/samples/tibetan-ball.wav"
+                        sample, _ = librosa.load(sample_path, sr=graph.sample_rate, mono=True)
+                        pitch = librosa.yin(sample, fmin=100, fmax=11000, sr=graph.sample_rate, 
+                                            frame_length=graph.output_buffer_size*4, hop_length=graph.output_buffer_size)
+                        pitch = [p for p in pitch.tolist() if p != graph.sample_rate]
+                        base_pitch_hz = float(np.array(pitch).mean())
+                        synth = Granular(sample_path, base_pitch_hz)
                     synth.set_input('frequency', pred_frequency) 
-                    synth.set_input('gain', float(np.clip(pred_rms*5, 0, 1))) 
-                    synth.set_input('frequency', pred_frequency) 
-                    env_params = [0.3, 0.3, 0.2, 0.1]
+                    synth.set_input('gain', float(pred_rms*RMS_multiplier))
                     for i, param_name in enumerate(envelope_param_names):
-                        synth.set_input(param_name, env_params[i]) 
-                    timbre_params = [0.3, 0.3, 0.2, 0.1]
-                    # timbre_params = predicted_parameters.tolist()
+                        synth.set_input(param_name, ADSR_standard[i]) 
+                    if useTimbre:
+                        next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
+                        with torch.no_grad():
+                            predicted_parameters = flow_model.regression_model(next_latents) # parameters
+                        predicted_parameters = predicted_parameters[0].detach().cpu().numpy()
+                        timbre_params = predicted_parameters.tolist()
+                    else:
+                        timbre_params = [0.3, 0.3, 0.2, 0.1]
                     for i, param_name in enumerate(timbre_param_names):
                         synth.set_input(param_name, timbre_params[i]) 
                     synth.set_input('gate', 1) 
-                    synth.play()
-                    # panner = StereoPanner( synth , pan=1)
-                    # panner.play()
+                    if SYNTH_NAME == 'TimbreTheremin' or SYNTH_NAME == 'Granular' or SYNTH_NAME == 'FM':
+                        synth.play()
                     print(f'[{count_frames/sr:.3f}] SYNTH EVENT | rms: {pred_rms:.3f}, pitch: {pred_frequency:.3f}, duration: {pred_duration / sr:.3f}')
 
                 end_lookup_time = time.time()

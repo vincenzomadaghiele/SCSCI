@@ -66,7 +66,7 @@ def computeEventFeatures(signal, onsets, sample_rate, FFT_window_size, hop_size,
 			this_onset_signal[:duration]
 		else: 
 			duration = this_onset_signal.shape[0]
-		pitch = librosa.yin(this_onset_signal, fmin=200, fmax=sample_rate/2, sr=sample_rate, frame_length=FFT_window_size, hop_length=hop_size)
+		pitch = librosa.yin(this_onset_signal, fmin=200, fmax=sample_rate/2, sr=sample_rate, frame_length=512, hop_length=hop_size)
 		if timbre_pitch:
 			BASE_FREQ = 220
 			base_pitch = librosa.hz_to_midi(BASE_FREQ)
@@ -356,9 +356,9 @@ def extractEvents(signal,
 if __name__ == "__main__":
 
 	# extract 
-	corpus_name = 'petter-bass'
-	src_track_name = 'bass'
-	tgt_track_name = 'bass copy'
+	corpus_name = 'corpus/petter-study'
+	src_track_name = 'petter-tgt'
+	tgt_track_name = 'petter-src'
 	corpus_path = f'./{corpus_name}'
 	corpus_dirs = os.listdir(corpus_path)
 	src_tgt = []

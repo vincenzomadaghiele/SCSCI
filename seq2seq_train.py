@@ -241,7 +241,7 @@ if __name__ == '__main__':
     rmsTranspose = True
     pitchTranspose = True
     durationTranspose = True
-    latentsTranspose = False
+    latentsTranspose = True
     maskAugment = False
     randomSubstitute = True
     NUM_AUGMENT = 10

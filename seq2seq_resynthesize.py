@@ -69,6 +69,22 @@ def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNT
     synth.close()
 
     events = extractEvents(signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
+
+    # # COMPUTE MEAN OF FLOW LATENT SEQUENCES
+    # latents = []
+    # for event in events:
+    #     if event['rms'] != 0:
+    #         z_tilde, predicted_parameters = melToFlowLatents(event['mel'], flow_model, flow_mean, flow_var)
+    #         latents.append(z_tilde)
+    # latents = np.array(latents)
+    # latents_mean = latents.mean(axis=0)
+    # latents_std = latents.std(axis=0)
+    # latents_max = latents.max(axis=0)
+    # latents_min = latents.min(axis=0)
+    # total_latents = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{model_name}/latents.npy')
+    # total_latents_mean = total_latents.mean(axis=0)
+    # total_latents_std = total_latents.std(axis=0)
+
     # COMPUTE LATENTS
     VAE_latents, flow_latents = [], []
     original_reconstruct = np.zeros_like(signal)
@@ -181,9 +197,9 @@ if __name__ == '__main__':
 
     # save models by synth
     SYNTH_NAME = 'FM'
-    corpus_name = 'petter-bass'
-    song_name = 'improv4'
-    tgt_track_name = 'bass'
+    corpus_name = 'petter-study'
+    song_name = 'session-4'
+    tgt_track_name = 'petter-src'
 
     # LOAD FLOW MODEL
     device = torch.device('cpu')

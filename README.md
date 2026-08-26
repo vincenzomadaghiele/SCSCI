@@ -38,5 +38,5 @@ TODO:
 
 To train flow:
 ```
-python3 flow_train.py --path synth/datasets --dataset Granular --data mel --model vae_flow --regressor flow_post --flow planar --epochs 200 --output synth/trained_flows/Granular/ --start_regress 50
+python3 flow_train.py --path synth/datasets --dataset Rung --data mel --model vae_flow --regressor flow_post --flow planar --epochs 200 --output synth/trained_flows/Rung/ --start_regress 50
 ```

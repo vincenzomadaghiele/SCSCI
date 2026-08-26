@@ -75,7 +75,7 @@ class feedbackFM(Patch):
         output = (op1 + op2 + op3) * gain * env
 
         self.output = output
-        self.set_auto_free(False)
+        self.set_auto_free(True)
 
 if __name__ == "__main__":
 

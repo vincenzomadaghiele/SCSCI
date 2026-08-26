@@ -9,6 +9,7 @@ from synth.patches.benjolin import Benjolin
 from synth.patches.granular import Granular
 from synth.patches.FM import FM
 from synth.patches.snare import Snare
+from synth.patches.rung import Rung
 from synth.patches.timbreTheremin import TimbreTheremin
 from synth.patches.karplusStrong import KarplusStrong
 
@@ -38,6 +39,8 @@ class Synth:
             self.synth = KarplusStrong(self.graph) 
         elif self.synth_name == 'FM':
             self.synth = FM() 
+        elif self.synth_name == 'Rung':
+            self.synth = Rung(self.graph) 
         elif self.synth_name == 'Granular':
             import librosa
             sample_path = "./synth/patches/samples/tibetan-ball.wav"
