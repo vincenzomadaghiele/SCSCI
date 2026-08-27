@@ -182,6 +182,10 @@ def generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_mode
             # add time difference index
             x_src_window_times = (pred_signal_sample - PRED_TIME_SAMPLES) - times_src[indices]
             input_src_array = np.concatenate((input_src[indices], x_src_window_times.reshape(-1,1)), axis=1)[-training_parameters['max_sequence_length']:,:]
+            if input_src_array.shape[0] == 0:
+                input_src_array = np.zeros(training_parameters['N_latents_src']+2).tolist() + [882, training_parameters['window_size_s']-1]
+                input_src_array = np.array(input_src_array).reshape(1,-1)
+
             # get target events in window before current
             times_tgt = np.array(tgt_past_events_starttimes)
             input_tgt = np.array(tgt_past_events)
@@ -189,6 +193,10 @@ def generateCoImprovisation(src_audio_filepath, SYNTH_NAME, VAE_model, flow_mode
             # add time difference index
             x_tgt_window_times = (pred_signal_sample - PRED_TIME_SAMPLES) - times_tgt[indices]
             input_tgt_array = np.concatenate((input_tgt[indices], x_tgt_window_times.reshape(-1,1)), axis=1)[-training_parameters['max_sequence_length']:,:]
+            if input_tgt_array.shape[0] == 0:
+                input_tgt_array = np.zeros(N_latents_tgt+2).tolist() + [882, training_parameters['window_size_s']-1]
+                input_tgt_array = np.array(input_tgt_array).reshape(1,-1)
+
             # update metrics
             end_sequpdate_time = time.time()
             end_inf_time = time.time()
@@ -239,11 +247,11 @@ if __name__ == '__main__':
 
     # device 
     DEVICE = torch.device("cpu")
-    corpus_name = 'guitar-duo'
-    src_track_name = 'guitar1'
+    corpus_name = 'petter-study'
+    src_track_name = 'petter-tgt'
     SYNTH_NAME = 'FM'
-    transformer_name = '1787682904-transformerDiscreteT2V'
-    song_name = 'recording5'
+    transformer_name = '1787764946-transformerDiscreteT2V'
+    song_name = 'session-1'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
     # LOAD TRANSFORMER
@@ -278,7 +286,7 @@ if __name__ == '__main__':
             dim_feedforward=training_parameters['dim_feedforward'], 
             dropout_p=training_parameters['dropout_p']
     ).to(DEVICE)
-    seq2seq_model.load_state_dict(torch.load(model_load_path, weights_only=True))
+    seq2seq_model.load_state_dict(torch.load(model_load_path, weights_only=True, map_location=torch.device('cpu')))
     seq2seq_model.eval()
     # LOAD MODEL UTILS
     src_scaler = joblib.load(f'{model_dir}/source_scaler.pkl')

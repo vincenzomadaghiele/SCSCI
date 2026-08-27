@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     # LOAD VAE FOR SRC ENCODING
     DEVICE = torch.device("cpu")
-    corpus_name = 'guitar-duo'
+    corpus_name = 'petter-study'
     corpus_path = f'corpus/{corpus_name}'
     VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
     hidden_dim = 128 # load these from pre-saved JSON
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     flow_model.eval()
 
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
-    transformer_name = '1787682904-transformerDiscreteT2V'
+    transformer_name = '1787764834-transformerDiscreteT2V'
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
@@ -87,7 +87,7 @@ if __name__ == "__main__":
             dim_feedforward=training_parameters['dim_feedforward'], 
             dropout_p=training_parameters['dropout_p']
     ).to(DEVICE)
-    model.load_state_dict(torch.load(model_load_path, weights_only=True))
+    model.load_state_dict(torch.load(model_load_path, weights_only=True, map_location=torch.device('cpu')))
     model.eval()
     src_scaler = joblib.load(f'{model_dir}/source_scaler.pkl')
     tgt_scaler = joblib.load(f'{model_dir}/target_scaler.pkl')
@@ -98,10 +98,10 @@ if __name__ == "__main__":
     config = AudioGraphConfig()
     config.sample_rate = sr
     config.output_buffer_size = hop_size
-    # config.output_device_name = "UltraLite-mk5"
-    # config.input_device_name = "UltraLite-mk5"
-    config.output_device_name = "Scarlett 2i2 USB"
-    config.input_device_name = "Scarlett 2i2 USB"
+    config.output_device_name = "UltraLite-mk5"
+    config.input_device_name = "UltraLite-mk5"
+    # config.output_device_name = "Scarlett 2i2 USB"
+    # config.input_device_name = "Scarlett 2i2 USB"
     graph = AudioGraph(config)
     audio_in = AudioIn(1)
     audio_in = audio_in[0]

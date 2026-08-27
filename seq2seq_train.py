@@ -20,6 +20,11 @@ from torch.utils.tensorboard import SummaryWriter
 from CONSTANTS import * 
 from transformer.transformerDiscreteT2V import TransformerDiscreteT2V
 
+from VAE_train import Encoder, Decoder, Model
+from seq2seq_generate_coimpro import generateCoImprovisation
+from seq2seq_resynthesize import plotFlowTimbre
+
+
 def batchify(data, batch_size=16):
     # return batches of dim (batch_size, seq_length, num_feats)
     batches = []
@@ -96,10 +101,10 @@ if __name__ == '__main__':
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
 
-    corpus_name = 'guitar-duo'
+    corpus_name = 'petter-study'
     corpus_path = f'corpus/{corpus_name}'
-    src_track_name = 'guitar1'
-    tgt_track_name = 'guitar2'
+    src_track_name = 'petter-tgt'
+    tgt_track_name = 'petter-src'
     SYNTH_NAME = 'FM'
 
     with open(f"synth/params/{SYNTH_NAME}.txt", "r") as file:
@@ -132,6 +137,7 @@ if __name__ == '__main__':
     training_parameters['N_latents_src'] = 8
     training_parameters['N_latents_tgt'] = N_latents_tgt
     training_parameters['synth_name'] = SYNTH_NAME
+    training_parameters['augment_amt'] = 0 # augments data by this amount
     model_load_path = None
 
     random.seed(training_parameters['seed'])
@@ -244,7 +250,7 @@ if __name__ == '__main__':
     latentsTranspose = True
     maskAugment = False
     randomSubstitute = True
-    NUM_AUGMENT = 10
+    NUM_AUGMENT = training_parameters['augment_amt']
     rmsIndexSrc = features_source.index("rms")
     rmsIndexTgt = features_target.index("rms")
     pitchIndexSrc = features_source.index("pitch")
@@ -480,11 +486,6 @@ if __name__ == '__main__':
     # ----------------------------------------#
     # GENERATE CO-IMPROVISATIONS OFFLINE
     # ----------------------------------------#
-    
-    from VAE_train import Encoder, Decoder, Model
-    from seq2seq_generate_coimpro import generateCoImprovisation
-    from seq2seq_resynthesize import plotFlowTimbre
-
     training_parameters['max_sequence_length'] = MAX_SEQ_LEN 
 
     device = torch.device("cpu") 

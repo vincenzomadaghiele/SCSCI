@@ -49,12 +49,12 @@ def slicePerformanceRecording(START_SLICE_INDEX_S, STOP_SLICE_INDEX_S, corpus_na
 
 if __name__ == '__main__': 
 
-    corpus_name = "guitar-duo"
-    SYNTH_NAME = "TimbreTheremin"
-    transformer_name = '1786989331-transformerDiscreteT2V'
-    performance_name = '1787063302'
-    START_SLICE_INDEX_S = 50
-    STOP_SLICE_INDEX_S = 160
+    corpus_name = "petter-study"
+    SYNTH_NAME = "FM"
+    transformer_name = '1787764834-transformerDiscreteT2V'
+    performance_name = '1787833068'
+    START_SLICE_INDEX_S = 60
+    STOP_SLICE_INDEX_S = 60+45
     
     slicePerformanceRecording(START_SLICE_INDEX_S, 
                               STOP_SLICE_INDEX_S, 
