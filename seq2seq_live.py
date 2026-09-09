@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     # LOAD VAE FOR SRC ENCODING
     DEVICE = torch.device("cpu")
-    corpus_name = 'petter-study'
+    corpus_name = 'elena-study'
     corpus_path = f'corpus/{corpus_name}'
     VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
     hidden_dim = 128 # load these from pre-saved JSON
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     VAE_model.eval()
 
     # LOAD NORMALIZING FLOW MODEL FOR TGT ENCODING AND DECODING
-    SYNTH_NAME = 'FM'
+    SYNTH_NAME = 'Granular'
     useTimbre = True
     quantizePitch = True
     flow_model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     flow_model.eval()
 
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
-    transformer_name = '1787764834-transformerDiscreteT2V'
+    transformer_name = '1788616058-transformerDiscreteT2V-BEST'
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
@@ -98,14 +98,15 @@ if __name__ == "__main__":
     config = AudioGraphConfig()
     config.sample_rate = sr
     config.output_buffer_size = hop_size
-    config.output_device_name = "UltraLite-mk5"
-    config.input_device_name = "UltraLite-mk5"
-    # config.output_device_name = "Scarlett 2i2 USB"
-    # config.input_device_name = "Scarlett 2i2 USB"
+    # config.output_buffer_size = 128
+    # config.output_device_name = "UltraLite-mk5"
+    # config.input_device_name = "UltraLite-mk5"
+    config.output_device_name = "Scarlett 2i2 USB"
+    config.input_device_name = "Scarlett 2i2 USB"
     graph = AudioGraph(config)
     audio_in = AudioIn(1)
     audio_in = audio_in[0]
-    panned_audio_in = StereoPanner( audio_in, pan=1)
+    panned_audio_in = StereoPanner( audio_in, pan=1) * 0.5
     graph.play(panned_audio_in) 
     impulse = StereoPanner( Impulse(frequency=0), pan=0)
     graph.play(impulse) 
@@ -118,7 +119,7 @@ if __name__ == "__main__":
     elif SYNTH_NAME == 'Rung':
         synth = Rung(graph) 
     elif SYNTH_NAME == 'Benjolin':
-        synth = Benjolin(graph) 
+        synth = Benjolin(graph)  
     elif SYNTH_NAME == 'Granular':
         sample_path = "./synth/patches/samples/tibetan-ball.wav"
         sample, _ = librosa.load(sample_path, sr=graph.sample_rate, mono=True)
@@ -198,13 +199,13 @@ if __name__ == "__main__":
         # event_latents = [] # remove this if using latents
         event_latents.append(rms.mean()) 
         event_latents.append(pitch.mean()) 
-        event_latents.append(np.clip(event_duration, 882, 88200)) 
+        event_latents.append(np.clip(event_duration, min_event_duration_samples, max_event_duration_samples)) 
         features = np.array(event_latents)
         print(f'[{time/sr:.3f}] HUMAN EVENT | rms: {rms.mean():.3f}, pitch: {pitch.mean():.3f}, duration: {event_duration / sr:.3f}')
         return features
 
     def makeRest(signal, time=0):
-        event_duration = np.clip(signal.shape[0], 882, 88200)
+        event_duration = np.clip(signal.shape[0], min_event_duration_samples, max_event_duration_samples)
         event_latents = np.zeros(latent_dim).tolist()
         # event_latents = [] # remove this if using latents
         event_latents.append(0) 
@@ -237,6 +238,9 @@ if __name__ == "__main__":
         count_frames = 0
 
         while True:
+            graph.wait( update_interval_s - update_interval_s * 0.30) # reduce 30% time (not sure why..)
+
+
             signal = input_buffer.data[0,:].copy()
             # print(signal.shape)
             count_frames += hop_size
@@ -396,7 +400,7 @@ if __name__ == "__main__":
                 pred_latents = y_pred[:N_latents_tgt]
                 pred_rms = y_pred[N_latents_tgt]
                 pred_frequency = np.clip(y_pred[N_latents_tgt+1], 50, 11050)
-                pred_duration = int(np.clip(y_pred[N_latents_tgt+2], 882, 88200))
+                pred_duration = int(np.clip(y_pred[N_latents_tgt+2], min_event_duration_samples, max_event_duration_samples))
 
                 # quantize pitch
                 if quantizePitch:
@@ -447,6 +451,7 @@ if __name__ == "__main__":
                         timbre_params = [0.3, 0.3, 0.2, 0.1]
                     for i, param_name in enumerate(timbre_param_names):
                         synth.set_input(param_name, timbre_params[i]) 
+                    synth.auto_free = True
                     synth.set_input('gate', 1) 
                     if SYNTH_NAME == 'TimbreTheremin' or SYNTH_NAME == 'Granular' or SYNTH_NAME == 'FM':
                         synth.play()
@@ -489,13 +494,13 @@ if __name__ == "__main__":
             else:
                 tgt_samples_left -= hop_size 
 
-
             time_end = time.time()
-            time.sleep( update_interval_s - update_interval_s * 0.30) # reduce 30% time (not sure why..)
+            # time.sleep( update_interval_s - update_interval_s * 0.30) # reduce 30% time (not sure why..)
 
     except KeyboardInterrupt:
         
         graph.stop_recording()
+        graph.stop()
         end_time = time.time()
         print(f'total performance time: {end_time-start_time}')
 

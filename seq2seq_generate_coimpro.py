@@ -247,15 +247,16 @@ if __name__ == '__main__':
 
     # device 
     DEVICE = torch.device("cpu")
-    corpus_name = 'petter-study'
-    src_track_name = 'petter-tgt'
-    SYNTH_NAME = 'FM'
-    transformer_name = '1787764946-transformerDiscreteT2V'
-    song_name = 'session-1'
+    corpus_name = 'elena-study'
+    # corpus_name = 'petter-study-finetune'
+    src_track_name = 'elena-src'
+    SYNTH_NAME = 'Granular'
+    transformer_name = '1788727399-transformerDiscreteT2V'
+    song_name = 'session-4'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
     # LOAD TRANSFORMER
-    model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
+    model_dir = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
     model_load_path = f'{model_dir}/best_model.pth'

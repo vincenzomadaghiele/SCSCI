@@ -9,11 +9,21 @@ from corpus.extract_events import plotEvents, plotPairedEvents
 
 
 def slicePerformanceRecording(START_SLICE_INDEX_S, STOP_SLICE_INDEX_S, corpus_name, SYNTH_NAME, transformer_name, performance_name):
+
+
     # LOAD DATABASE
     model_dir = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     performance_dir = f'{model_dir}/01_live_recordings/{performance_name}'
     df_src = pd.read_csv(f"{performance_dir}/src_events.csv", index_col=0)
     df_tgt = pd.read_csv(f"{performance_dir}/tgt_events.csv", index_col=0)
+
+    if START_SLICE_INDEX_S is None:
+        START_SLICE_INDEX_S = 0
+
+    if STOP_SLICE_INDEX_S is None:
+        src_max = (df_src.iloc[-1]["event_start"] + df_src.iloc[-1]["event_duration"]) / sr
+        tgt_max = (df_tgt.iloc[-1]["event_start"] + df_tgt.iloc[-1]["event_duration"]) / sr
+        STOP_SLICE_INDEX_S = int(max(src_max, tgt_max))
 
     # MAKE DIR TO SAVE SLICED FILE
     sliced_dir = f'{performance_dir}/sliced/sliced-{START_SLICE_INDEX_S}_{STOP_SLICE_INDEX_S}'
@@ -51,10 +61,10 @@ if __name__ == '__main__':
 
     corpus_name = "petter-study"
     SYNTH_NAME = "FM"
-    transformer_name = '1787764834-transformerDiscreteT2V'
-    performance_name = '1787833068'
-    START_SLICE_INDEX_S = 60
-    STOP_SLICE_INDEX_S = 60+45
+    transformer_name = '1787764778-transformerDiscreteT2V-BEST'
+    performance_name = '1787905202'
+    START_SLICE_INDEX_S = 45
+    STOP_SLICE_INDEX_S = None
     
     slicePerformanceRecording(START_SLICE_INDEX_S, 
                               STOP_SLICE_INDEX_S, 

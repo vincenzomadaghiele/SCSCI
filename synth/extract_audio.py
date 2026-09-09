@@ -16,12 +16,12 @@ if __name__ == '__main__':
     RECORDING_TIME = 10
     sr = 44100
     hop_size = 256
-    SYNTH_NAME = 'Rung'
+    SYNTH_NAME = 'Granular'
     SAVE_FILEPATH = f'{SAVE_FILEPATH}/{SYNTH_NAME}'
     os.makedirs(SAVE_FILEPATH, exist_ok=True)
 
     RANDOM_PERMUTATIONS = True
-    N_timbre_parameters = 3
+    N_timbre_parameters = 7
     if RANDOM_PERMUTATIONS:
         NUM_SAMPLES = 5000
         permutations = []

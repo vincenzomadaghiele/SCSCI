@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     # LOAD VAE FOR SRC ENCODING
     DEVICE = torch.device("cpu")
-    corpus_name = 'petter-study'
+    corpus_name = 'elena-study'
     corpus_path = f'corpus/{corpus_name}'
     VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
     hidden_dim = 128 # load these from pre-saved JSON
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     VAE_model.eval()
 
     # LOAD NORMALIZING FLOW MODEL FOR TGT ENCODING AND DECODING
-    SYNTH_NAME = 'FM'
+    SYNTH_NAME = 'Granular'
     useTimbre = True
     quantizePitch = True
     flow_model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
@@ -64,8 +64,8 @@ if __name__ == "__main__":
     flow_model.eval()
 
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
-    transformer_name = '1787764834-transformerDiscreteT2V'
-    model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
+    transformer_name = '1788727399-transformerDiscreteT2V'
+    model_dir = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
 
@@ -100,14 +100,14 @@ if __name__ == "__main__":
     config = AudioGraphConfig()
     config.sample_rate = sr
     config.output_buffer_size = hop_size
-    config.output_device_name = "UltraLite-mk5"
-    config.input_device_name = "UltraLite-mk5"
-    # config.output_device_name = "Scarlett 2i2 USB"
-    # config.input_device_name = "Scarlett 2i2 USB"
+    # config.output_device_name = "UltraLite-mk5"
+    # config.input_device_name = "UltraLite-mk5"
+    config.output_device_name = "Scarlett 2i2 USB"
+    config.input_device_name = "Scarlett 2i2 USB"
     graph = AudioGraph(config)
     audio_in = AudioIn(1)
     audio_in = audio_in[0]
-    panned_audio_in = StereoPanner( audio_in, pan=1)
+    panned_audio_in = StereoPanner( audio_in, pan=1 )
     graph.play(panned_audio_in) 
     impulse = StereoPanner( Impulse(frequency=0), pan=0)
     graph.play(impulse) 

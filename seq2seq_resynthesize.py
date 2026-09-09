@@ -58,7 +58,7 @@ def melToFlowLatents(mels, flow_model, mean, var, num_MELS=64, melspec_size=80):
 
 def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNTH_NAME, 
                         latents_mean=None, latents_std=None, total_latents_mean=None, total_latents_std=None, 
-                        latents_min=None, latents_max=None):
+                        latents_min=None, latents_max=None, flow_model_name=None):
 
     # LOAD SYNTH
     # RECORDING_TIME = int(melspec_size_flow * FFT_window / sr)
@@ -66,24 +66,28 @@ def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNT
     synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
     param_names = synth.getInputs()
     timbre_param_names = [p for p in param_names if p not in non_timbre_params_names]
+    # if SYNTH_NAME in ['TimbreTheremin', 'Granular', 'FM']:
     synth.close()
 
     events = extractEvents(signal, FFT_window, sr, hop_size, num_MFCC, num_MEL, min_event_duration_samples, max_event_duration_samples)
 
-    # # COMPUTE MEAN OF FLOW LATENT SEQUENCES
-    # latents = []
-    # for event in events:
-    #     if event['rms'] != 0:
-    #         z_tilde, predicted_parameters = melToFlowLatents(event['mel'], flow_model, flow_mean, flow_var)
-    #         latents.append(z_tilde)
-    # latents = np.array(latents)
-    # latents_mean = latents.mean(axis=0)
-    # latents_std = latents.std(axis=0)
-    # latents_max = latents.max(axis=0)
-    # latents_min = latents.min(axis=0)
-    # total_latents = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{model_name}/latents.npy')
-    # total_latents_mean = total_latents.mean(axis=0)
-    # total_latents_std = total_latents.std(axis=0)
+    # COMPUTE MEAN OF FLOW LATENT SEQUENCES
+    # if latents_mean is not None and latents_std is not None and total_latents_mean is not None and total_latents_std is not None and latents_min is not None and latents_max is not None:
+    if any(v is None for v in [latents_mean, latents_std, total_latents_mean, total_latents_std, latents_min, latents_max]):
+        print()
+        latents = []
+        for event in events:
+            if event['rms'] != 0:
+                z_tilde, predicted_parameters = melToFlowLatents(event['mel'], flow_model, flow_mean, flow_var)
+                latents.append(z_tilde)
+        latents = np.array(latents)
+        latents_mean = latents.mean(axis=0)
+        latents_std = latents.std(axis=0)
+        total_latents = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{flow_model_name}/latents.npy')
+        total_latents_mean = total_latents.mean(axis=0)
+        total_latents_std = total_latents.std(axis=0)
+        latents_max = total_latents.max(axis=0)
+        latents_min = total_latents.min(axis=0)
 
     # COMPUTE LATENTS
     VAE_latents, flow_latents = [], []
@@ -92,16 +96,19 @@ def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNT
     for event in events:
         if event['rms'] != 0:
             # COMPUTE VAE LATENTS
-            event_latents = melToVAElatents(event['mel'], VAE_model)
-            VAE_latents.append(event_latents)
+            if VAE_model is not None:
+                event_latents = melToVAElatents(event['mel'], VAE_model)
+                VAE_latents.append(event_latents)
             # COMPUTE FLOW LATENTS
             z_tilde, predicted_parameters = melToFlowLatents(event['mel'], flow_model, flow_mean, flow_var)
-            if latents_mean is not None and latents_std is not None and total_latents_mean is not None and total_latents_std is not None and latents_min is not None and latents_max is not None:
+            # if latents_mean is not None and latents_std is not None and total_latents_mean is not None and total_latents_std is not None and latents_min is not None and latents_max is not None:
+            if all(v is not None for v in [latents_mean, latents_std, total_latents_mean, total_latents_std, latents_min, latents_max]):
                 z_tilde = (z_tilde - latents_mean) * (total_latents_std / latents_std) + total_latents_mean
-                event_latents = np.clip(z_tilde, latents_min, latents_max)
-            event_latents = event_latents.tolist()
-            flow_latents.append(z_tilde.tolist())
+                z_tilde = np.clip(z_tilde, latents_min, latents_max)
+            z_tilde = z_tilde.tolist()
+            flow_latents.append(z_tilde)
             # RE-SYNTHESIZE SOUND EVENT
+            # if SYNTH_NAME in ['TimbreTheremin', 'Granular', 'FM']:
             synth = Synth(SYNTH_NAME, sr, hop_size, RECORDING_TIME)
             synth.setParameters(timbre_param_names, predicted_parameters.tolist())
             if frequency_param_name in param_names:
@@ -111,6 +118,7 @@ def resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNT
             synth.setParameters(envelope_param_names, ADSR_standard)
             event['event_duration'] = np.clip(event['event_duration'], min_event_duration_samples, max_event_duration_samples)
             synthesized_event = synth.forward( event['event_duration'] / sr ) 
+            # if SYNTH_NAME in ['TimbreTheremin', 'Granular', 'FM']:
             synth.close()
             if synthesized_event.shape[0] > event['event_duration']:
                 event['resynthesized'] = synthesized_event[:event['event_duration']]
@@ -196,10 +204,10 @@ def plotVAETimbre(full_VAE_latents, VAE_latents_path, SAVE_FILEPATH):
 if __name__ == '__main__': 
 
     # save models by synth
-    SYNTH_NAME = 'FM'
-    corpus_name = 'petter-study'
+    SYNTH_NAME = 'Granular'
+    corpus_name = 'elena-study'
     song_name = 'session-4'
-    tgt_track_name = 'petter-src'
+    tgt_track_name = 'elena-tgt'
 
     # LOAD FLOW MODEL
     device = torch.device('cpu')
@@ -216,22 +224,42 @@ if __name__ == '__main__':
         flow_var = d['mel']
 
     # LOAD VAE
-    corpus_path = f'corpus/{corpus_name}'
-    VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
-    hidden_dim = 128 # load these from pre-saved JSON
-    latent_dim = 8
-    image_size = 64
-    image_size_flat = image_size * image_size
-    encoder = Encoder(input_dim=image_size_flat, hidden_dim=hidden_dim, latent_dim=latent_dim)
-    decoder = Decoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = image_size_flat)
-    VAE_model = Model(Encoder=encoder, Decoder=decoder).to(device)
-    VAE_model.load_state_dict(torch.load(VAE_model_name, weights_only=True))
-    VAE_model.eval()
+    # corpus_path = f'corpus/{corpus_name}'
+    # VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
+    # hidden_dim = 128 # load these from pre-saved JSON
+    # latent_dim = 8
+    # image_size = 64
+    # image_size_flat = image_size * image_size
+    # encoder = Encoder(input_dim=image_size_flat, hidden_dim=hidden_dim, latent_dim=latent_dim)
+    # decoder = Decoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = image_size_flat)
+    # VAE_model = Model(Encoder=encoder, Decoder=decoder).to(device)
+    # VAE_model.load_state_dict(torch.load(VAE_model_name, weights_only=True))
+    # VAE_model.eval()
+
+    VAE_model = None
+
+    # # COMPUTE MEAN OF FLOW LATENT SEQUENCES
+    # latents = []
+    # for song in tgt_corpus_files:
+    #     event_sequence = np.load(song, allow_pickle=True)
+    #     for event in event_sequence:
+    #         if event['rms'] != 0:
+    #             z_tilde, predicted_parameters = melToFlowLatents(event['mel'], flow_model, flow_mean, flow_var)
+    #             latents.append(z_tilde)
+    # latents = np.array(latents)
+    # latents_mean = latents.mean(axis=0)
+    # latents_std = latents.std(axis=0)
+    # latents_max = latents.max(axis=0)
+    # latents_min = latents.min(axis=0)
+    # total_latents = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{model_name}/latents.npy')
+    # total_latents_mean = total_latents.mean(axis=0)
+    # total_latents_std = total_latents.std(axis=0)
+
 
     # RESYNTHESIZE FILE
     filepath = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}.wav'
     signal, _ = librosa.load(filepath, sr=sr, mono=True)
-    flow_latents, VAE_latents, original_reconstruct, resynthesized_reconstruct = resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNTH_NAME)
+    flow_latents, VAE_latents, original_reconstruct, resynthesized_reconstruct = resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNTH_NAME, flow_model_name=model_name)
 
     # SAVE AUDIOFILE
     SAVE_FILEPATH = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}_{SYNTH_NAME}'
@@ -243,6 +271,7 @@ if __name__ == '__main__':
     X = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{model_name}/latents.npy')
     plotFlowTimbre(X, flow_latents, SAVE_FILEPATH)
 
-    # PLOT PATH ON THE VAE TIMBRE SPACE
-    X = np.load(f'./corpus/{corpus_name}/trained_VAE/latents.npy')
-    plotVAETimbre(X, VAE_latents, SAVE_FILEPATH)
+    if VAE_model is not None:
+        # PLOT PATH ON THE VAE TIMBRE SPACE
+        X = np.load(f'./corpus/{corpus_name}/trained_VAE/latents.npy')
+        plotVAETimbre(X, VAE_latents, SAVE_FILEPATH)

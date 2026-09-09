@@ -17,9 +17,9 @@ if __name__ == '__main__':
     DEVICE = torch.device("cpu")
 
     # LOAD EVENT SEQUENCES CORPUS
-    corpus_name = 'petter-study'
-    src_track_name = 'petter-tgt'
-    tgt_track_name = 'petter-src'
+    corpus_name = 'elena-study'
+    src_track_name = 'elena-src'
+    tgt_track_name = 'elena-tgt'
     corpus_path = f'corpus/{corpus_name}'
     song_names = os.listdir(corpus_path)
     song_names = [c for c in song_names if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full','finetune']]
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     VAE_model.eval()
 
     # LOAD FLOW MODEL
-    SYNTH_NAME = 'FM'
+    SYNTH_NAME = 'Granular'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
@@ -86,11 +86,11 @@ if __name__ == '__main__':
     latents = np.array(latents)
     latents_mean = latents.mean(axis=0)
     latents_std = latents.std(axis=0)
-    latents_max = latents.max(axis=0)
-    latents_min = latents.min(axis=0)
     total_latents = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{model_name}/latents.npy')
     total_latents_mean = total_latents.mean(axis=0)
     total_latents_std = total_latents.std(axis=0)
+    latents_max = total_latents.max(axis=0)
+    latents_min = total_latents.min(axis=0)
 
     tgt_events = []
     timbreRescale = True # rescale timbre for resynthesis
@@ -122,10 +122,11 @@ if __name__ == '__main__':
         # RESYNTHESIZE FILE
         filepath = f'./corpus/{corpus_name}/{song_name}/{tgt_track_name}.wav'
         signal, _ = librosa.load(filepath, sr=sr, mono=True)
-        flow_latents, VAE_latents, original_reconstruct, resynthesized_reconstruct = resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNTH_NAME,
+        flow_latents, VAE_latents, original_reconstruct, resynthesized_reconstruct = resynthesizeFlowVAE(signal, flow_model, VAE_model, flow_mean, flow_var, SYNTH_NAME, flow_model_name=model_name,
                                                                                                          latents_mean=latents_mean, latents_std=latents_std, 
                                                                                                          total_latents_mean=total_latents_mean, total_latents_std=total_latents_std, 
-                                                                                                         latents_min=latents_min, latents_max=latents_max)
+                                                                                                         latents_min=latents_min, latents_max=latents_max
+                                                                                                         )
         # SAVE AUDIOFILE
         SAVE_FILEPATH = f'./corpus/{corpus_name}/{song_name}/resynthesized_{tgt_track_name}_{SYNTH_NAME}'
         os.makedirs(SAVE_FILEPATH, exist_ok=True)

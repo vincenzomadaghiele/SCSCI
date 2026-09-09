@@ -356,15 +356,15 @@ def extractEvents(signal,
 if __name__ == "__main__":
 
 	# extract 
-	corpus_name = 'corpus/petter-study'
-	src_track_name = 'petter-tgt'
-	tgt_track_name = 'petter-src'
+	corpus_name = 'corpus/elena-study'
+	src_track_name = 'elena-src'
+	tgt_track_name = 'elena-tgt'
 	corpus_path = f'./{corpus_name}'
 	corpus_dirs = os.listdir(corpus_path)
 	src_tgt = []
 	for track_name in [src_track_name, tgt_track_name]:
 		corpus_events = []
-		corpus_dirs = [c for c in corpus_dirs if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full']]
+		corpus_dirs = [c for c in corpus_dirs if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full','finetune']]
 		corpus_files = [f'{corpus_path}/{song_name}/{track_name}.wav' for song_name in corpus_dirs]
 		for song_name in corpus_dirs:
 			os.makedirs(f'{corpus_path}/{song_name}/mel', exist_ok=True)

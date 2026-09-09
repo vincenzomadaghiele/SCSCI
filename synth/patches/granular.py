@@ -36,7 +36,7 @@ class Granular(Patch):
         position = ScaleLinLin(input=position, a=0, b=1, c=0, d=int(buf.duration - (buf.duration/2)))
         position_variance = ScaleLinLin(input=position_variance, a=0, b=1, c=0, d=int(buf.duration/4))
         duration_variance = ScaleLinLin(input=duration_variance, a=0, b=1, c=0, d=1)
-        rate_variance = ScaleLinLin(input=rate_variance, a=0, b=1, c=0, d=2)
+        rate_variance = ScaleLinLin(input=rate_variance, a=0, b=1, c=0, d=0.1)
         trigger_variance = ScaleLinLin(input=trigger_variance, a=0, b=1, c=0, d=1)
         A = ScaleLinLin(input=A, a=0, b=1, c=0.001, d=0.1)
         D = ScaleLinLin(input=D, a=0, b=1, c=0.01, d=0.3)
@@ -66,7 +66,7 @@ class Granular(Patch):
                                 max_grains = 2048,
                                 wrap = True)
         granulator.set_buffer("envelope", EnvelopeBuffer("triangle"))
-        output = granulator * env * gain
+        output = granulator * env * gain * 0.5
 
         # forward
         self.set_output(output)
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     N_params = len(param_names)
 
     # PLAYBACK PROPERTIES
-    metro = 0.4
+    metro = 1
     random_metro = 0.5
     NUM_VOICES = 10
     MAX_DURATION = 4
@@ -110,7 +110,7 @@ if __name__ == "__main__":
         new_parameters = np.random.rand(N_params).tolist()
         for i, param_name in enumerate(param_names):
             if param_name == "frequency":
-                new_parameters[i] = math.log2(new_parameters[i]+1) * 11000 + 50
+                new_parameters[i] = math.log2(new_parameters[i]+1) * 1000 + 50
             voice.set_input(param_name, new_parameters[i]) 
         voice.set_input("gain", 1 / NUM_VOICES)
         voice.set_input("gate", 1)

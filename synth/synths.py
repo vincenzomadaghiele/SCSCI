@@ -59,6 +59,7 @@ class Synth:
         # print(self.graph.sample_rate, self.buffer_size-event_duration)
         buffer_decay = Buffer(1, int(self.graph.sample_rate * (self.buffer_size-event_duration)))
         self.synth.set_input("gate", 1)
+        # if self.synth_name in ['TimbreTheremin', 'Granular', 'FM']:
         self.synth.play()
         self.graph.render_to_buffer(buffer_event)
         rendered_event = buffer_event.data[0,:]

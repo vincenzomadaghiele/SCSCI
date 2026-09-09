@@ -101,11 +101,11 @@ if __name__ == '__main__':
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
 
-    corpus_name = 'petter-study'
+    corpus_name = 'andrea-study'
     corpus_path = f'corpus/{corpus_name}'
-    src_track_name = 'petter-tgt'
-    tgt_track_name = 'petter-src'
-    SYNTH_NAME = 'FM'
+    src_track_name = 'andrea-src'
+    tgt_track_name = 'andrea-tgt'
+    SYNTH_NAME = 'Rung'
 
     with open(f"synth/params/{SYNTH_NAME}.txt", "r") as file:
         params = file.readlines()
@@ -131,13 +131,13 @@ if __name__ == '__main__':
     training_parameters['pad_token'] = -1000
     training_parameters['loss_fn'] = 'MSE'
     training_parameters['learning_rate'] = 0.001
-    training_parameters['epochs'] = 4000
+    training_parameters['epochs'] = 10000
     training_parameters['seed'] = 666
     training_parameters['use_timbre'] = True
     training_parameters['N_latents_src'] = 8
     training_parameters['N_latents_tgt'] = N_latents_tgt
     training_parameters['synth_name'] = SYNTH_NAME
-    training_parameters['augment_amt'] = 0 # augments data by this amount
+    training_parameters['augment_amt'] = 15 # augments data by this amount
     model_load_path = None
 
     random.seed(training_parameters['seed'])
@@ -149,6 +149,7 @@ if __name__ == '__main__':
         features_source += ['rms', 'pitch', 'event_duration']
         features_target = [f'latent-{j}' for j in range(training_parameters['N_latents_tgt'])]
         features_target += ['rms', 'pitch', 'event_duration']
+        
     else:
         features_source = ['rms', 'pitch', 'event_duration']
         features_target = ['rms', 'pitch', 'event_duration']
@@ -500,7 +501,7 @@ if __name__ == '__main__':
     encoder = Encoder(input_dim=image_size_flat, hidden_dim=hidden_dim, latent_dim=latent_dim)
     decoder = Decoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = image_size_flat)
     VAE_model = Model(Encoder=encoder, Decoder=decoder).to(device)
-    VAE_model.load_state_dict(torch.load(VAE_model_name, weights_only=True))
+    VAE_model.load_state_dict(torch.load(VAE_model_name, weights_only=True, map_location=torch.device('cpu')))
     VAE_model.eval()
 
     # LOAD FLOW MODEL FOR TGT COMPUTATION
