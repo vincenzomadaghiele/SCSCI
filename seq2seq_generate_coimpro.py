@@ -247,12 +247,12 @@ if __name__ == '__main__':
 
     # device 
     DEVICE = torch.device("cpu")
-    corpus_name = 'elena-study'
+    corpus_name = 'andrea-study'
     # corpus_name = 'petter-study-finetune'
-    src_track_name = 'elena-src'
+    src_track_name = 'andrea-src'
     SYNTH_NAME = 'Granular'
-    transformer_name = '1788727399-transformerDiscreteT2V'
-    song_name = 'session-4'
+    transformer_name = '1789126699-transformerDiscreteT2V'
+    song_name = 'session-2'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
     # LOAD TRANSFORMER

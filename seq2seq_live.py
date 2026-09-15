@@ -39,7 +39,9 @@ if __name__ == "__main__":
 
     # LOAD VAE FOR SRC ENCODING
     DEVICE = torch.device("cpu")
-    corpus_name = 'elena-study'
+    # corpus_name = 'petter-study-finetune'
+    # corpus_name = 'guitar-duo'
+    corpus_name = 'andrea-study'
     corpus_path = f'corpus/{corpus_name}'
     VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
     hidden_dim = 128 # load these from pre-saved JSON
@@ -53,16 +55,28 @@ if __name__ == "__main__":
     VAE_model.eval()
 
     # LOAD NORMALIZING FLOW MODEL FOR TGT ENCODING AND DECODING
-    SYNTH_NAME = 'Granular'
+    # SYNTH_NAME = 'FM'
+    # SYNTH_NAME = 'Granular'
+    SYNTH_NAME = 'Rung'
     useTimbre = True
-    quantizePitch = True
+    # quantizePitch = True
+    quantizePitch = False
     flow_model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     flow_model = torch.load(f'{model_path}/{flow_model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
     flow_model.eval()
 
+    total_latents = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{flow_model_name}/latents.npy')
+    total_latents_mean = total_latents.mean(axis=0)
+    total_latents_std = total_latents.std(axis=0)
+    latents_max = total_latents.max(axis=0)
+    latents_min = total_latents.min(axis=0)
+
+
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
-    transformer_name = '1788616058-transformerDiscreteT2V-BEST'
+    # transformer_name = '1788289834-transformerDiscreteT2V-C'
+    # transformer_name = '1787506669-transformerDiscreteT2V'
+    transformer_name = '1788806940-transformerDiscreteT2V-DEMO'
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
@@ -164,7 +178,7 @@ if __name__ == "__main__":
     model_inference_time_s = 0.003
     inference_time_samples = model_inference_time_s * sr
     tgt_samples_left = 0
-    silence_threshold = 0.003 # SILENCE THREHSOLD NEEDS TO BE ADAPTED TO LIVE SITUATION
+    silence_threshold = 0.0005 # SILENCE THREHSOLD NEEDS TO BE ADAPTED TO LIVE SITUATION
 
     # UTILS FUNCTION
     def detectRest(event):
@@ -425,8 +439,9 @@ if __name__ == "__main__":
                         synth = TimbreTheremin() 
                     elif SYNTH_NAME == 'FM':
                         synth = FM() 
-                    # elif SYNTH_NAME == 'Rung':
-                    #     synth = Rung(graph) 
+                    elif SYNTH_NAME == 'Rung':
+                        synth = Rung(graph)
+                        synth.auto_free = True
                     # elif SYNTH_NAME == 'Benjolin':
                     #     synth = Benjolin(graph) 
                     elif SYNTH_NAME == 'Granular':
@@ -442,6 +457,7 @@ if __name__ == "__main__":
                     for i, param_name in enumerate(envelope_param_names):
                         synth.set_input(param_name, ADSR_standard[i]) 
                     if useTimbre:
+                        pred_latents = np.clip(pred_latents, latents_min, latents_max)
                         next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
                         with torch.no_grad():
                             predicted_parameters = flow_model.regression_model(next_latents) # parameters
@@ -453,7 +469,8 @@ if __name__ == "__main__":
                         synth.set_input(param_name, timbre_params[i]) 
                     synth.auto_free = True
                     synth.set_input('gate', 1) 
-                    if SYNTH_NAME == 'TimbreTheremin' or SYNTH_NAME == 'Granular' or SYNTH_NAME == 'FM':
+                    if SYNTH_NAME == 'TimbreTheremin' or SYNTH_NAME == 'Granular' or SYNTH_NAME == 'FM' or SYNTH_NAME == 'Rung':
+                    # if SYNTH_NAME == 'TimbreTheremin' or SYNTH_NAME == 'Granular' or SYNTH_NAME == 'FM':
                         synth.play()
                     print(f'[{count_frames/sr:.3f}] SYNTH EVENT | rms: {pred_rms:.3f}, pitch: {pred_frequency:.3f}, duration: {pred_duration / sr:.3f}')
 

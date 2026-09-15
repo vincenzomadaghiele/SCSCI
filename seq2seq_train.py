@@ -105,7 +105,7 @@ if __name__ == '__main__':
     corpus_path = f'corpus/{corpus_name}'
     src_track_name = 'andrea-src'
     tgt_track_name = 'andrea-tgt'
-    SYNTH_NAME = 'Rung'
+    SYNTH_NAME = 'FM'
 
     with open(f"synth/params/{SYNTH_NAME}.txt", "r") as file:
         params = file.readlines()
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     training_parameters['N_latents_src'] = 8
     training_parameters['N_latents_tgt'] = N_latents_tgt
     training_parameters['synth_name'] = SYNTH_NAME
-    training_parameters['augment_amt'] = 15 # augments data by this amount
+    training_parameters['augment_amt'] = 10 # augments data by this amount
     model_load_path = None
 
     random.seed(training_parameters['seed'])
