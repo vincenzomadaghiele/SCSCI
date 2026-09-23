@@ -45,7 +45,8 @@ if __name__ == "__main__":
 
     # LOAD VAE FOR SRC ENCODING
     DEVICE = torch.device("cpu")
-    corpus_name = 'petter-study'
+    # corpus_name = 'andrea-study'
+    corpus_name = 'andrea-study-finetune'
     corpus_path = f'corpus/{corpus_name}'
     VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
     hidden_dim = 128 # load these from pre-saved JSON
@@ -63,9 +64,9 @@ if __name__ == "__main__":
     VAE_latents_min = VAE_latents.min(axis=0) + 2
 
     # LOAD NORMALIZING FLOW MODEL FOR TGT ENCODING AND DECODING
-    SYNTH_NAME = 'FM'
+    SYNTH_NAME = 'Rung'
     useTimbre = True
-    quantizePitch = True
+    quantizePitch = False
     flow_model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     flow_model = torch.load(f'{model_path}/{flow_model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
@@ -77,9 +78,10 @@ if __name__ == "__main__":
     latents_max = total_latents.max(axis=0)
     latents_min = total_latents.min(axis=0)
 
-
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
-    transformer_name = '1787764778-transformerDiscreteT2V-BEST'
+    # transformer_name = '1789841389-transformerDiscreteT2V-BEST'
+    transformer_name = '1790085993-transformerDiscreteT2V-A'
+    # transformer_name = '1790086045-transformerDiscreteT2V-B'
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
@@ -116,10 +118,10 @@ if __name__ == "__main__":
     config.sample_rate = sr
     config.output_buffer_size = hop_size
     # config.output_buffer_size = 128
-    config.output_device_name = "UltraLite-mk5"
-    config.input_device_name = "UltraLite-mk5"
-    # config.output_device_name = "Scarlett 2i2 USB"
-    # config.input_device_name = "Scarlett 2i2 USB"
+    # config.output_device_name = "UltraLite-mk5"
+    # config.input_device_name = "UltraLite-mk5"
+    config.output_device_name = "Scarlett 2i2 USB"
+    config.input_device_name = "Scarlett 2i2 USB"
     graph = AudioGraph(config)
     audio_in = AudioIn(1)
     audio_in = audio_in[0]
@@ -431,7 +433,7 @@ if __name__ == "__main__":
             
                 # print(y.reshape(-1), y_pred)
 
-                if pred_rms < 0.0001:
+                if pred_rms < 0.02:
                     sound_segment = np.zeros(pred_duration)
                     y_pred[:N_latents_tgt] = np.zeros_like(y_pred[:N_latents_tgt])
                     y_pred[N_latents_tgt] = 0

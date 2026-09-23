@@ -77,7 +77,7 @@ class Rung(Patch):
         graph.add_node(FeedbackBufferWriter(buf_pulse02, O2_pls, graph.output_buffer_size / graph.sample_rate))
 
         PWM = GreaterThan(a=O1_tri, b=O2_tri)
-        output = (RUNGLER + PWM) * 0.5
+        output = Tanh(RUNGLER + PWM) * 0.2
         output = output * gain * env
 
         self.set_output(output)
