@@ -19,7 +19,7 @@ from synth.patches.granular import Granular
 from synth.patches.benjolin import Benjolin
 from transformer.transformerDiscreteT2V import TransformerDiscreteT2V
 from VAE_train import Encoder, Decoder, Model
-from corpus.extract_events import detectOnsets
+# from corpus.extract_events import detectOnsets
 from seq2seq_resynthesize import melToVAElatents
 
 import warnings
@@ -34,14 +34,18 @@ def adjustAmplitude(signal, FFT_window_size, hop_size, signal_max=None):
             signal *= 0.6/signal.max()
     return signal
 
+from corpus.onset_detect import OnsetDetection
+def detectOnsets(signal, sample_rate):
+	onsetDetector = OnsetDetection(sr=sample_rate)
+	onsets = onsetDetector(signal.reshape(1,-1))
+	return onsets
+
 
 if __name__ == "__main__":
 
     # LOAD VAE FOR SRC ENCODING
     DEVICE = torch.device("cpu")
-    # corpus_name = 'petter-study-finetune'
-    # corpus_name = 'guitar-duo'
-    corpus_name = 'andrea-study'
+    corpus_name = 'petter-study'
     corpus_path = f'corpus/{corpus_name}'
     VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
     hidden_dim = 128 # load these from pre-saved JSON
@@ -54,13 +58,14 @@ if __name__ == "__main__":
     VAE_model.load_state_dict(torch.load(VAE_model_name, weights_only=True))
     VAE_model.eval()
 
+    VAE_latents = np.load(f'{corpus_path}/trained_VAE/latents.npy')
+    VAE_latents_max = VAE_latents.max(axis=0) - 2
+    VAE_latents_min = VAE_latents.min(axis=0) + 2
+
     # LOAD NORMALIZING FLOW MODEL FOR TGT ENCODING AND DECODING
-    # SYNTH_NAME = 'FM'
-    # SYNTH_NAME = 'Granular'
-    SYNTH_NAME = 'Rung'
+    SYNTH_NAME = 'FM'
     useTimbre = True
-    # quantizePitch = True
-    quantizePitch = False
+    quantizePitch = True
     flow_model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     flow_model = torch.load(f'{model_path}/{flow_model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
@@ -74,9 +79,7 @@ if __name__ == "__main__":
 
 
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
-    # transformer_name = '1788289834-transformerDiscreteT2V-C'
-    # transformer_name = '1787506669-transformerDiscreteT2V'
-    transformer_name = '1788806940-transformerDiscreteT2V-DEMO'
+    transformer_name = '1787764778-transformerDiscreteT2V-BEST'
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
@@ -113,14 +116,14 @@ if __name__ == "__main__":
     config.sample_rate = sr
     config.output_buffer_size = hop_size
     # config.output_buffer_size = 128
-    # config.output_device_name = "UltraLite-mk5"
-    # config.input_device_name = "UltraLite-mk5"
-    config.output_device_name = "Scarlett 2i2 USB"
-    config.input_device_name = "Scarlett 2i2 USB"
+    config.output_device_name = "UltraLite-mk5"
+    config.input_device_name = "UltraLite-mk5"
+    # config.output_device_name = "Scarlett 2i2 USB"
+    # config.input_device_name = "Scarlett 2i2 USB"
     graph = AudioGraph(config)
     audio_in = AudioIn(1)
     audio_in = audio_in[0]
-    panned_audio_in = StereoPanner( audio_in, pan=1) * 0.5
+    panned_audio_in = StereoPanner( audio_in, pan=1 ) #* 0.5
     graph.play(panned_audio_in) 
     impulse = StereoPanner( Impulse(frequency=0), pan=0)
     graph.play(impulse) 
@@ -164,7 +167,7 @@ if __name__ == "__main__":
     input_buffer = Buffer(1, FFT_window)
     min_feedback_writer_delay = graph.output_buffer_size / graph.sample_rate # samples
     # graph.add_node(FeedbackBufferWriter(input_buffer, audio_in, min_feedback_writer_delay))
-    graph.add_node(HistoryBufferWriter(input_buffer, audio_in*2))
+    graph.add_node(HistoryBufferWriter(input_buffer, audio_in))
 
     # ARRAYS FOR SAVING INPUTS AND OUTPUTS
     WINDOW_N_SAMPLES = training_parameters['window_size_s'] * sr
@@ -178,7 +181,7 @@ if __name__ == "__main__":
     model_inference_time_s = 0.003
     inference_time_samples = model_inference_time_s * sr
     tgt_samples_left = 0
-    silence_threshold = 0.0005 # SILENCE THREHSOLD NEEDS TO BE ADAPTED TO LIVE SITUATION
+    silence_threshold = 0.005 # SILENCE THREHSOLD NEEDS TO BE ADAPTED TO LIVE SITUATION
 
     # UTILS FUNCTION
     def detectRest(event):
@@ -209,6 +212,7 @@ if __name__ == "__main__":
         mel = librosa.feature.melspectrogram(y=signal, sr=sr, n_fft=FFT_window, n_mels=num_MEL, hop_length=hop_size, fmin=50, fmax=11000)
         mel = mel[:num_MEL, :melspec_size_flow]
         event_latents = melToVAElatents(mel, VAE_model)
+        event_latents = np.clip(event_latents, VAE_latents_min, VAE_latents_max)
         event_latents = event_latents.tolist()
         # event_latents = [] # remove this if using latents
         event_latents.append(rms.mean()) 
@@ -270,7 +274,7 @@ if __name__ == "__main__":
                 # else: 
                 #     adj_signal = np.zeros_like(signal)
                 # onsets_samples = detectOnsets(adj_signal, sr, min_event_duration_samples=min_event_duration_samples)
-                onsets_samples = detectOnsets(signal, sr, min_event_duration_samples=min_event_duration_samples)
+                onsets_samples = detectOnsets(signal, sr)
 
                 # check if onset already found in previous windows
                 alreadyFound = False
@@ -439,9 +443,9 @@ if __name__ == "__main__":
                         synth = TimbreTheremin() 
                     elif SYNTH_NAME == 'FM':
                         synth = FM() 
-                    elif SYNTH_NAME == 'Rung':
-                        synth = Rung(graph)
-                        synth.auto_free = True
+                    # elif SYNTH_NAME == 'Rung':
+                    #     synth = Rung(graph)
+                    #     synth.auto_free = True
                     # elif SYNTH_NAME == 'Benjolin':
                     #     synth = Benjolin(graph) 
                     elif SYNTH_NAME == 'Granular':
@@ -457,20 +461,26 @@ if __name__ == "__main__":
                     for i, param_name in enumerate(envelope_param_names):
                         synth.set_input(param_name, ADSR_standard[i]) 
                     if useTimbre:
+                        # print(pred_latents, latents_min, latents_max)
                         pred_latents = np.clip(pred_latents, latents_min, latents_max)
+                        # print(pred_latents)
                         next_latents = torch.tensor(pred_latents).reshape(1, -1).type(torch.FloatTensor).to(DEVICE)
                         with torch.no_grad():
                             predicted_parameters = flow_model.regression_model(next_latents) # parameters
                         predicted_parameters = predicted_parameters[0].detach().cpu().numpy()
+                        predicted_parameters = np.clip(predicted_parameters, a_min=0.001, a_max=0.999)
                         timbre_params = predicted_parameters.tolist()
+                        # print(timbre_params)
                     else:
                         timbre_params = [0.3, 0.3, 0.2, 0.1]
+                    if any(np.isnan(np.array(timbre_params))):
+                        timbre_params = np.zeros_like(np.array(timbre_params))
                     for i, param_name in enumerate(timbre_param_names):
                         synth.set_input(param_name, timbre_params[i]) 
-                    synth.auto_free = True
+                    # synth.auto_free = True
                     synth.set_input('gate', 1) 
-                    if SYNTH_NAME == 'TimbreTheremin' or SYNTH_NAME == 'Granular' or SYNTH_NAME == 'FM' or SYNTH_NAME == 'Rung':
-                    # if SYNTH_NAME == 'TimbreTheremin' or SYNTH_NAME == 'Granular' or SYNTH_NAME == 'FM':
+                    # if SYNTH_NAME == 'TimbreTheremin' or SYNTH_NAME == 'Granular' or SYNTH_NAME == 'FM' or SYNTH_NAME == 'Rung':
+                    if SYNTH_NAME == 'TimbreTheremin' or SYNTH_NAME == 'Granular' or SYNTH_NAME == 'FM':
                         synth.play()
                     print(f'[{count_frames/sr:.3f}] SYNTH EVENT | rms: {pred_rms:.3f}, pitch: {pred_frequency:.3f}, duration: {pred_duration / sr:.3f}')
 

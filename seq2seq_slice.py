@@ -10,7 +10,6 @@ from corpus.extract_events import plotEvents, plotPairedEvents
 
 def slicePerformanceRecording(START_SLICE_INDEX_S, STOP_SLICE_INDEX_S, corpus_name, SYNTH_NAME, transformer_name, performance_name):
 
-
     # LOAD DATABASE
     model_dir = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     performance_dir = f'{model_dir}/01_live_recordings/{performance_name}'
@@ -59,12 +58,12 @@ def slicePerformanceRecording(START_SLICE_INDEX_S, STOP_SLICE_INDEX_S, corpus_na
 
 if __name__ == '__main__': 
 
-    corpus_name = "petter-study"
-    SYNTH_NAME = "FM"
-    transformer_name = '1787764778-transformerDiscreteT2V-BEST'
-    performance_name = '1787905202'
-    START_SLICE_INDEX_S = 45
-    STOP_SLICE_INDEX_S = None
+    corpus_name = "andrea-study"
+    SYNTH_NAME = "Rung"
+    transformer_name = '1789841389-transformerDiscreteT2V'
+    performance_name = '1789897677'
+    START_SLICE_INDEX_S = 360+52
+    STOP_SLICE_INDEX_S = 360+60+52
     
     slicePerformanceRecording(START_SLICE_INDEX_S, 
                               STOP_SLICE_INDEX_S, 

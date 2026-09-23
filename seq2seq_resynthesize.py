@@ -204,10 +204,10 @@ def plotVAETimbre(full_VAE_latents, VAE_latents_path, SAVE_FILEPATH):
 if __name__ == '__main__': 
 
     # save models by synth
-    SYNTH_NAME = 'Granular'
-    corpus_name = 'elena-study'
+    SYNTH_NAME = 'Rung'
+    corpus_name = 'andrea-study'
     song_name = 'session-4'
-    tgt_track_name = 'elena-tgt'
+    tgt_track_name = 'andrea-tgt'
 
     # LOAD FLOW MODEL
     device = torch.device('cpu')

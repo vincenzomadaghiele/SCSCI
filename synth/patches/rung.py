@@ -89,6 +89,8 @@ if __name__ == "__main__":
     # AUDIO GRAPH
     config = AudioGraphConfig()
     config.output_buffer_size = 256
+    config.output_device_name = "Scarlett 2i2 USB"
+    config.input_device_name = "Scarlett 2i2 USB"
     graph = AudioGraph(config=config, start=True)
 
     # GET SYNTH PROPERTIES

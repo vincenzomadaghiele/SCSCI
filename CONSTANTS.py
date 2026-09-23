@@ -7,7 +7,7 @@ num_MEL = 64
 melspec_size_flow = 80
 silence_threshold = 0.001
 max_event_duration_samples = 88200
-min_event_duration_samples = 882*2
+min_event_duration_samples = 882
 
 # THESE ARE THE SAME FOR ALL SYNTHS
 frequency_param_name = "frequency"

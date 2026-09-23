@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     # LOAD VAE FOR SRC ENCODING
     DEVICE = torch.device("cpu")
-    corpus_name = 'elena-study'
+    corpus_name = 'andrea-study'
     corpus_path = f'corpus/{corpus_name}'
     VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
     hidden_dim = 128 # load these from pre-saved JSON
@@ -55,16 +55,16 @@ if __name__ == "__main__":
     VAE_model.eval()
 
     # LOAD NORMALIZING FLOW MODEL FOR TGT ENCODING AND DECODING
-    SYNTH_NAME = 'Granular'
+    SYNTH_NAME = 'Rung'
     useTimbre = True
-    quantizePitch = True
+    quantizePitch = False
     flow_model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     flow_model = torch.load(f'{model_path}/{flow_model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
     flow_model.eval()
 
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
-    transformer_name = '1788727399-transformerDiscreteT2V'
+    transformer_name = '1789841389-transformerDiscreteT2V'
     model_dir = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     graph = AudioGraph(config)
     audio_in = AudioIn(1)
     audio_in = audio_in[0]
-    panned_audio_in = StereoPanner( audio_in, pan=1 )
+    panned_audio_in = StereoPanner( audio_in, pan=0.3 )
     graph.play(panned_audio_in) 
     impulse = StereoPanner( Impulse(frequency=0), pan=0)
     graph.play(impulse) 
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     input_buffer = Buffer(1, FFT_window)
     min_feedback_writer_delay = graph.output_buffer_size / graph.sample_rate # samples
     # graph.add_node(FeedbackBufferWriter(input_buffer, audio_in, min_feedback_writer_delay))
-    graph.add_node(HistoryBufferWriter(input_buffer, audio_in*2))
+    graph.add_node(HistoryBufferWriter(input_buffer, audio_in*6))
 
     # ARRAYS FOR SAVING INPUTS AND OUTPUTS
     WINDOW_N_SAMPLES = training_parameters['window_size_s'] * sr

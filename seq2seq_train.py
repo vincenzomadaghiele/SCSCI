@@ -101,11 +101,11 @@ if __name__ == '__main__':
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
 
-    corpus_name = 'andrea-study'
+    corpus_name = 'andrea-study-finetune'
     corpus_path = f'corpus/{corpus_name}'
     src_track_name = 'andrea-src'
     tgt_track_name = 'andrea-tgt'
-    SYNTH_NAME = 'FM'
+    SYNTH_NAME = 'Rung'
 
     with open(f"synth/params/{SYNTH_NAME}.txt", "r") as file:
         params = file.readlines()
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     training_parameters['N_latents_src'] = 8
     training_parameters['N_latents_tgt'] = N_latents_tgt
     training_parameters['synth_name'] = SYNTH_NAME
-    training_parameters['augment_amt'] = 10 # augments data by this amount
+    training_parameters['augment_amt'] = 5 # augments data by this amount
     model_load_path = None
 
     random.seed(training_parameters['seed'])
@@ -278,7 +278,7 @@ if __name__ == '__main__':
                     # new_data.append([x_src, x_tgt, y_tgt])
                 if pitchTranspose:
                     # transpose pitch by max 10 %
-                    PITCH_TRANSP = 0.3
+                    PITCH_TRANSP = 0.2
                     coefficient = PITCH_TRANSP * (np.random.rand() * 2 -1)
                     x_src[:,pitchIndexSrc] = x_src[:,pitchIndexSrc] + x_src[:,pitchIndexSrc] * coefficient
                     x_tgt[:,pitchIndexTgt] = x_tgt[:,pitchIndexTgt] + x_tgt[:,pitchIndexTgt] * coefficient
@@ -286,14 +286,14 @@ if __name__ == '__main__':
                     # new_data.append([x_src, x_tgt, datum[2]])
                 if durationTranspose:
                     # increase or decrease durations by max 10 %
-                    DUR_TRANSP = 0.3
+                    DUR_TRANSP = 0.2
                     coefficient = DUR_TRANSP * (np.random.rand() * 2 -1)
                     x_src[:,durationIndexSrc] = x_src[:,durationIndexSrc] + x_src[:,durationIndexSrc] * coefficient
                     x_tgt[:,durationIndexTgt] = x_tgt[:,durationIndexTgt] + x_tgt[:,durationIndexTgt] * coefficient
                     y_tgt[durationIndexTgt] = y_tgt[durationIndexTgt] + y_tgt[durationIndexTgt] * coefficient
                 if latentsTranspose:
                     # increase or decrease durations by max 10 %
-                    LATENTS_TRANSP = 0.2
+                    LATENTS_TRANSP = 0.1
                     coefficient = LATENTS_TRANSP * (np.random.rand(len(latentIndexSrc)) * 2 -1)
                     x_src[:,latentIndexSrc] = x_src[:,latentIndexSrc] + x_src[:,latentIndexSrc] * coefficient
                     coefficient = LATENTS_TRANSP * (np.random.rand(len(latentIndexTgt)) * 2 -1)

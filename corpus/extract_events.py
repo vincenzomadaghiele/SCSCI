@@ -356,9 +356,9 @@ def extractEvents(signal,
 if __name__ == "__main__":
 
 	# extract 
-	corpus_name = 'corpus/elena-study'
-	src_track_name = 'elena-src'
-	tgt_track_name = 'elena-tgt'
+	corpus_name = 'andrea-study-finetune'
+	src_track_name = 'andrea-src'
+	tgt_track_name = 'andrea-tgt'
 	corpus_path = f'./{corpus_name}'
 	corpus_dirs = os.listdir(corpus_path)
 	src_tgt = []

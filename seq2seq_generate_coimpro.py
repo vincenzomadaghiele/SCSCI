@@ -250,8 +250,8 @@ if __name__ == '__main__':
     corpus_name = 'andrea-study'
     # corpus_name = 'petter-study-finetune'
     src_track_name = 'andrea-src'
-    SYNTH_NAME = 'Granular'
-    transformer_name = '1789126699-transformerDiscreteT2V'
+    SYNTH_NAME = 'Rung'
+    transformer_name = '1789841389-transformerDiscreteT2V'
     song_name = 'session-2'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
 
