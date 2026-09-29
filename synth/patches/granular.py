@@ -63,7 +63,7 @@ class Granular(Patch):
                                 pos = position + RandomUniform(-1*position_variance, position_variance, clock=clock) * env,
                                 rate = rate + RandomUniform(-1*rate_variance, rate_variance, clock=clock) * env,
                                 duration = duration + RandomUniform(-1*duration_variance, duration_variance, clock=clock) * env,
-                                max_grains = 2048,
+                                max_grains = 8,
                                 wrap = True)
         granulator.set_buffer("envelope", EnvelopeBuffer("triangle"))
         output = granulator * env * gain * 0.5

@@ -88,6 +88,69 @@ class Model(nn.Module):
         return x_hat, mean, log_var
 
 
+
+# CNN ENCODER AND DECODER
+class Flatten(nn.Module):
+    def forward(self, input):
+        return input.view(input.size(0), -1)
+
+class UnFlatten(nn.Module):
+    def forward(self, input, size=1024):
+        return input.view(input.size(0), size, 1, 1)
+
+class VAE(nn.Module):
+    def __init__(self, image_channels=3, h_dim=1024, z_dim=32):
+        super(VAE, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(image_channels, 32, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=4, stride=2),
+            nn.ReLU(),
+            Flatten()
+        )
+        
+        self.fc1 = nn.Linear(h_dim, z_dim)
+        self.fc2 = nn.Linear(h_dim, z_dim)
+        self.fc3 = nn.Linear(z_dim, h_dim)
+        
+        self.decoder = nn.Sequential(
+            UnFlatten(),
+            nn.ConvTranspose2d(h_dim, 128, kernel_size=5, stride=2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(128, 64, kernel_size=5, stride=2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 32, kernel_size=6, stride=2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, image_channels, kernel_size=6, stride=2),
+            nn.Sigmoid(),
+        )
+        
+    def reparameterize(self, mu, logvar):
+        std = logvar.mul(0.5).exp_()
+        # return torch.normal(mu, std)
+        esp = torch.randn(*mu.size()).to(DEVICE)
+        z = mu + std * esp
+        return z
+    
+    def bottleneck(self, h):
+        mu, logvar = self.fc1(h), self.fc2(h)
+        z = self.reparameterize(mu, logvar)
+        return z, mu, logvar
+        
+    def representation(self, x):
+        return self.bottleneck(self.encoder(x))[0]
+
+    def forward(self, x):
+        h = self.encoder(x)
+        z, mu, logvar = self.bottleneck(h)
+        z = self.fc3(z)
+        return self.decoder(z), mu, logvar
+
+
 if __name__ == "__main__":
 
     # device 
@@ -144,9 +207,11 @@ if __name__ == "__main__":
     lr = 1e-3
     epochs = 500
 
-    encoder = Encoder(input_dim=image_size_flat, hidden_dim=hidden_dim, latent_dim=latent_dim)
-    decoder = Decoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = image_size_flat)
-    model = Model(Encoder=encoder, Decoder=decoder).to(DEVICE)
+    # encoder = Encoder(input_dim=image_size_flat, hidden_dim=hidden_dim, latent_dim=latent_dim)
+    # decoder = Decoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = image_size_flat)
+    # model = Model(Encoder=encoder, Decoder=decoder).to(DEVICE)
+
+    model = VAE(image_channels=1, h_dim=1024, z_dim=8).to(DEVICE)
 
     BCE_loss = nn.BCELoss()
     def loss_function(x, x_hat, mean, log_var):
@@ -168,7 +233,7 @@ if __name__ == "__main__":
     for epoch in range(epochs):
         overall_loss = 0
         for batch_idx, x in enumerate(train_loader):
-            x = x.view(x.shape[0], image_size_flat)
+            # x = x.view(x.shape[0], image_size_flat)
             x = x.to(DEVICE)
             optimizer.zero_grad()
             x_hat, mean, log_var = model(x)
@@ -183,7 +248,7 @@ if __name__ == "__main__":
 
             test_loss = 0
             for batch_idx, x in enumerate(test_loader):
-                x = x.view(x.shape[0], image_size_flat)
+                # x = x.view(x.shape[0], image_size_flat)
                 x = x.to(DEVICE)
                 optimizer.zero_grad()
                 x_hat, mean, log_var = model(x)
@@ -198,12 +263,12 @@ if __name__ == "__main__":
         if (epoch + 1) % 50 == 0:
             with torch.no_grad():
                 for x in test_loader:
-                    x = x.view(x.shape[0], image_size_flat)
+                    # x = x.view(x.shape[0], image_size_flat)
                     x = x.to(DEVICE)
                     x_hat, mean, log_var = model(x)
                     break
-            x = x.view(x.shape[0], image_size, image_size)
-            x_hat = x_hat.view(x.shape[0], image_size, image_size)
+            # x = x.view(x.shape[0], image_size, image_size)
+            # x_hat = x_hat.view(x.shape[0], image_size, image_size)
             fig, ax = plt.subplots(2, 7, figsize=(15, 4))
             for i in range(7):
                 ax[0, i].imshow(x[i].cpu().numpy())

@@ -58,12 +58,12 @@ def slicePerformanceRecording(START_SLICE_INDEX_S, STOP_SLICE_INDEX_S, corpus_na
 
 if __name__ == '__main__': 
 
-    corpus_name = "andrea-study"
-    SYNTH_NAME = "Rung"
-    transformer_name = '1789841389-transformerDiscreteT2V'
-    performance_name = '1789897677'
-    START_SLICE_INDEX_S = 360+52
-    STOP_SLICE_INDEX_S = 360+60+52
+    corpus_name = "elena-study"
+    SYNTH_NAME = "Granular"
+    transformer_name = '1788616058-transformerDiscreteT2V-BEST'
+    performance_name = '1788771625'
+    START_SLICE_INDEX_S = 120+14
+    STOP_SLICE_INDEX_S = 180+32
     
     slicePerformanceRecording(START_SLICE_INDEX_S, 
                               STOP_SLICE_INDEX_S, 

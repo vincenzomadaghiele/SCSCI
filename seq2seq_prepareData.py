@@ -17,9 +17,9 @@ if __name__ == '__main__':
     DEVICE = torch.device("cpu")
 
     # LOAD EVENT SEQUENCES CORPUS
-    corpus_name = 'andrea-study-finetune'
-    src_track_name = 'andrea-src'
-    tgt_track_name = 'andrea-tgt'
+    corpus_name = 'elena-study-finetune'
+    src_track_name = 'elena-src'
+    tgt_track_name = 'elena-tgt'
     corpus_path = f'corpus/{corpus_name}'
     song_names = os.listdir(corpus_path)
     song_names = [c for c in song_names if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full','finetune']]
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     VAE_model.eval()
 
     # LOAD FLOW MODEL
-    SYNTH_NAME = 'Rung'
+    SYNTH_NAME = 'Granular'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
@@ -140,7 +140,7 @@ if __name__ == '__main__':
         plotVAETimbre(X, VAE_latents, SAVE_FILEPATH)
 
     # IF FINETUNE
-    includeFinetune = False
+    includeFinetune = True
     if includeFinetune:
         finetune_path = f'{corpus_path}/finetune'
         song_names = os.listdir(finetune_path)
@@ -153,4 +153,4 @@ if __name__ == '__main__':
             df_src = pd.concat([df_src, fintune_src])
             df_tgt = pd.concat([df_tgt, fintune_tgt])
         df_src.to_csv(f"{corpus_path}/src_events.csv")
-        df_tgt.to_csv(f"{corpus_path}/tgt_events.csv")
+        df_tgt.to_csv(f"{corpus_path}/tgt_events_{SYNTH_NAME}.csv")
