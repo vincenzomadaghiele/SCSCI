@@ -17,12 +17,12 @@ if __name__ == '__main__':
     DEVICE = torch.device("cpu")
 
     # LOAD EVENT SEQUENCES CORPUS
-    corpus_name = 'elena-study-finetune'
-    src_track_name = 'elena-src'
-    tgt_track_name = 'elena-tgt'
+    corpus_name = 'andrea-study-plus'
+    src_track_name = 'andrea-src'
+    tgt_track_name = 'andrea-tgt'
     corpus_path = f'corpus/{corpus_name}'
     song_names = os.listdir(corpus_path)
-    song_names = [c for c in song_names if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full','finetune']]
+    song_names = [c for c in song_names if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','trained_CNNVAE','.DS_Store','src_full','finetune']]
     song_names.sort()
     src_corpus_files = [f'{corpus_path}/{song_name}/mel/{src_track_name}.npy' for song_name in song_names]
     tgt_corpus_files = [f'{corpus_path}/{song_name}/mel/{tgt_track_name}.npy' for song_name in song_names]
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     VAE_model.eval()
 
     # LOAD FLOW MODEL
-    SYNTH_NAME = 'Granular'
+    SYNTH_NAME = 'Rung'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
@@ -140,7 +140,7 @@ if __name__ == '__main__':
         plotVAETimbre(X, VAE_latents, SAVE_FILEPATH)
 
     # IF FINETUNE
-    includeFinetune = True
+    includeFinetune = False
     if includeFinetune:
         finetune_path = f'{corpus_path}/finetune'
         song_names = os.listdir(finetune_path)

@@ -126,7 +126,7 @@ def trainLoop(model, train_dataloader, loss_fn, opt, device, PAD_TOKEN, augment_
     model.train()
     total_loss = 0
     for batch in train_dataloader:
-        batch = augmentBatch(batch, augment_perc)
+        # batch = augmentBatch(batch, augment_perc)
         X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
         y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
         y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0], batch[2].shape[1])
@@ -182,7 +182,7 @@ if __name__ == '__main__':
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
 
-    corpus_name = 'andrea-study'
+    corpus_name = 'andrea-study-plus'
     corpus_path = f'corpus/{corpus_name}'
     src_track_name = 'andrea-src'
     tgt_track_name = 'andrea-tgt'
@@ -197,7 +197,7 @@ if __name__ == '__main__':
     training_parameters['sound_corpus_path'] = corpus_path
     training_parameters['source_track_name'] = src_track_name
     training_parameters['target_track_name'] = tgt_track_name
-    training_parameters['batch_size'] = 8
+    training_parameters['batch_size'] = 64
     training_parameters['num_frequency'] = 8
     training_parameters['dataset_training_percentage'] = 0.8
     training_parameters['dataset_validation_percentage'] = 0.1
@@ -218,7 +218,7 @@ if __name__ == '__main__':
     training_parameters['N_latents_src'] = 8
     training_parameters['N_latents_tgt'] = N_latents_tgt
     training_parameters['synth_name'] = SYNTH_NAME
-    training_parameters['augment_amt'] = 0 # augments data by this amount
+    training_parameters['augment_amt'] = 20 # augments data by this amount
     training_parameters['augment_perc_max'] = 0.5 # augments data by this amount
     model_load_path = None
 
@@ -326,75 +326,75 @@ if __name__ == '__main__':
             seq_lens.append(x_src.shape[0])
             seq_lens.append(x_tgt.shape[0])
 
-    # # DATA AUGMENTATION
-    # rmsTranspose = True
-    # pitchTranspose = True
-    # durationTranspose = True
-    # latentsTranspose = True
-    # maskAugment = False
-    # randomSubstitute = True
-    # NUM_AUGMENT = training_parameters['augment_amt']
-    # rmsIndexSrc = features_source.index("rms")
-    # rmsIndexTgt = features_target.index("rms")
-    # pitchIndexSrc = features_source.index("pitch")
-    # pitchIndexTgt = features_target.index("pitch")
-    # durationIndexSrc = features_source.index("event_duration")
-    # durationIndexTgt = features_target.index("event_duration")
-    # latentIndexSrc = [features_source.index(f"latent-{j}") for j in range(training_parameters['N_latents_src'])]
-    # latentIndexTgt = [features_source.index(f"latent-{j}") for j in range(training_parameters['N_latents_tgt'])]
-    # new_data = []
-    # for datum in data:
-    #     if datum[0].shape[0] > 0 and datum[1].shape[0] > 0:
-    #         x_src = datum[0].copy()
-    #         x_tgt = datum[1].copy()
-    #         y_tgt = datum[2].copy()
-    #         new_data.append([x_src, x_tgt, y_tgt])
-    #         for _ in range(NUM_AUGMENT):
-    #             if rmsTranspose:
-    #                 # increase or decrease rms by max 10 %
-    #                 RMS_TRANSP = 0.2
-    #                 coefficient = RMS_TRANSP * (np.random.rand() * 2 -1)
-    #                 x_src[:,rmsIndexSrc] = x_src[:,rmsIndexSrc] + x_src[:,rmsIndexSrc] * coefficient
-    #                 x_tgt[:,rmsIndexTgt] = x_tgt[:,rmsIndexTgt] + x_tgt[:,rmsIndexTgt] * coefficient
-    #                 y_tgt[rmsIndexTgt] = y_tgt[rmsIndexTgt] + y_tgt[rmsIndexTgt] * coefficient
-    #                 # new_data.append([x_src, x_tgt, y_tgt])
-    #             if pitchTranspose:
-    #                 # transpose pitch by max 10 %
-    #                 PITCH_TRANSP = 0.2
-    #                 coefficient = PITCH_TRANSP * (np.random.rand() * 2 -1)
-    #                 x_src[:,pitchIndexSrc] = x_src[:,pitchIndexSrc] + x_src[:,pitchIndexSrc] * coefficient
-    #                 x_tgt[:,pitchIndexTgt] = x_tgt[:,pitchIndexTgt] + x_tgt[:,pitchIndexTgt] * coefficient
-    #                 y_tgt[pitchIndexTgt] = y_tgt[pitchIndexTgt] + y_tgt[pitchIndexTgt] * coefficient
-    #                 # new_data.append([x_src, x_tgt, datum[2]])
-    #             if durationTranspose:
-    #                 # increase or decrease durations by max 10 %
-    #                 DUR_TRANSP = 0.2
-    #                 coefficient = DUR_TRANSP * (np.random.rand() * 2 -1)
-    #                 x_src[:,durationIndexSrc] = x_src[:,durationIndexSrc] + x_src[:,durationIndexSrc] * coefficient
-    #                 x_tgt[:,durationIndexTgt] = x_tgt[:,durationIndexTgt] + x_tgt[:,durationIndexTgt] * coefficient
-    #                 y_tgt[durationIndexTgt] = y_tgt[durationIndexTgt] + y_tgt[durationIndexTgt] * coefficient
-    #             if latentsTranspose:
-    #                 # increase or decrease durations by max 10 %
-    #                 LATENTS_TRANSP = 0.1
-    #                 coefficient = LATENTS_TRANSP * (np.random.rand(len(latentIndexSrc)) * 2 -1)
-    #                 x_src[:,latentIndexSrc] = x_src[:,latentIndexSrc] + x_src[:,latentIndexSrc] * coefficient
-    #                 coefficient = LATENTS_TRANSP * (np.random.rand(len(latentIndexTgt)) * 2 -1)
-    #                 x_tgt[:,latentIndexTgt] = x_tgt[:,latentIndexTgt] + x_tgt[:,latentIndexTgt] * coefficient
-    #                 y_tgt[latentIndexTgt] = y_tgt[latentIndexTgt] + y_tgt[latentIndexTgt] * coefficient
-    #             if maskAugment:
-    #                 MASK_TOKEN = np.ones_like(x_src[0,:-1]) * -10
-    #                 src_len, tgt_len = x_src.shape[0], x_tgt.shape[0]
-    #                 if np.random.rand() > 0.8:
-    #                     x_src[random.randint(0, src_len-1), :-1] = MASK_TOKEN
-    #                     x_tgt[random.randint(0, tgt_len-1), :-1] = MASK_TOKEN
-    #             if randomSubstitute:
-    #                 src_len, tgt_len = x_src.shape[0]-1, x_tgt.shape[0]-1
-    #                 if np.random.rand() > 0.8:
-    #                     x_src[random.randint(0, src_len), :-1] = x_src[random.randint(0, src_len), :-1]
-    #                     x_tgt[random.randint(0, tgt_len), :-1] = x_tgt[random.randint(0, tgt_len), :-1]
-    #             new_data.append([x_src, x_tgt, y_tgt])
-    # non_augmented_data = data.copy()
-    # data = new_data
+    # DATA AUGMENTATION
+    rmsTranspose = True
+    pitchTranspose = True
+    durationTranspose = True
+    latentsTranspose = True
+    maskAugment = False
+    randomSubstitute = True
+    NUM_AUGMENT = training_parameters['augment_amt']
+    rmsIndexSrc = features_source.index("rms")
+    rmsIndexTgt = features_target.index("rms")
+    pitchIndexSrc = features_source.index("pitch")
+    pitchIndexTgt = features_target.index("pitch")
+    durationIndexSrc = features_source.index("event_duration")
+    durationIndexTgt = features_target.index("event_duration")
+    latentIndexSrc = [features_source.index(f"latent-{j}") for j in range(training_parameters['N_latents_src'])]
+    latentIndexTgt = [features_source.index(f"latent-{j}") for j in range(training_parameters['N_latents_tgt'])]
+    new_data = []
+    for datum in data:
+        if datum[0].shape[0] > 0 and datum[1].shape[0] > 0:
+            x_src = datum[0].copy()
+            x_tgt = datum[1].copy()
+            y_tgt = datum[2].copy()
+            new_data.append([x_src, x_tgt, y_tgt])
+            for _ in range(NUM_AUGMENT):
+                if rmsTranspose:
+                    # increase or decrease rms by max 10 %
+                    RMS_TRANSP = 0.2
+                    coefficient = RMS_TRANSP * (np.random.rand() * 2 -1)
+                    x_src[:,rmsIndexSrc] = x_src[:,rmsIndexSrc] + x_src[:,rmsIndexSrc] * coefficient
+                    x_tgt[:,rmsIndexTgt] = x_tgt[:,rmsIndexTgt] + x_tgt[:,rmsIndexTgt] * coefficient
+                    y_tgt[rmsIndexTgt] = y_tgt[rmsIndexTgt] + y_tgt[rmsIndexTgt] * coefficient
+                    # new_data.append([x_src, x_tgt, y_tgt])
+                if pitchTranspose:
+                    # transpose pitch by max 10 %
+                    PITCH_TRANSP = 0.2
+                    coefficient = PITCH_TRANSP * (np.random.rand() * 2 -1)
+                    x_src[:,pitchIndexSrc] = x_src[:,pitchIndexSrc] + x_src[:,pitchIndexSrc] * coefficient
+                    x_tgt[:,pitchIndexTgt] = x_tgt[:,pitchIndexTgt] + x_tgt[:,pitchIndexTgt] * coefficient
+                    y_tgt[pitchIndexTgt] = y_tgt[pitchIndexTgt] + y_tgt[pitchIndexTgt] * coefficient
+                    # new_data.append([x_src, x_tgt, datum[2]])
+                if durationTranspose:
+                    # increase or decrease durations by max 10 %
+                    DUR_TRANSP = 0.2
+                    coefficient = DUR_TRANSP * (np.random.rand() * 2 -1)
+                    x_src[:,durationIndexSrc] = x_src[:,durationIndexSrc] + x_src[:,durationIndexSrc] * coefficient
+                    x_tgt[:,durationIndexTgt] = x_tgt[:,durationIndexTgt] + x_tgt[:,durationIndexTgt] * coefficient
+                    y_tgt[durationIndexTgt] = y_tgt[durationIndexTgt] + y_tgt[durationIndexTgt] * coefficient
+                if latentsTranspose:
+                    # increase or decrease durations by max 10 %
+                    LATENTS_TRANSP = 0.1
+                    coefficient = LATENTS_TRANSP * (np.random.rand(len(latentIndexSrc)) * 2 -1)
+                    x_src[:,latentIndexSrc] = x_src[:,latentIndexSrc] + x_src[:,latentIndexSrc] * coefficient
+                    coefficient = LATENTS_TRANSP * (np.random.rand(len(latentIndexTgt)) * 2 -1)
+                    x_tgt[:,latentIndexTgt] = x_tgt[:,latentIndexTgt] + x_tgt[:,latentIndexTgt] * coefficient
+                    y_tgt[latentIndexTgt] = y_tgt[latentIndexTgt] + y_tgt[latentIndexTgt] * coefficient
+                if maskAugment:
+                    MASK_TOKEN = np.ones_like(x_src[0,:-1]) * -10
+                    src_len, tgt_len = x_src.shape[0], x_tgt.shape[0]
+                    if np.random.rand() > 0.8:
+                        x_src[random.randint(0, src_len-1), :-1] = MASK_TOKEN
+                        x_tgt[random.randint(0, tgt_len-1), :-1] = MASK_TOKEN
+                if randomSubstitute:
+                    src_len, tgt_len = x_src.shape[0]-1, x_tgt.shape[0]-1
+                    if np.random.rand() > 0.8:
+                        x_src[random.randint(0, src_len), :-1] = x_src[random.randint(0, src_len), :-1]
+                        x_tgt[random.randint(0, tgt_len), :-1] = x_tgt[random.randint(0, tgt_len), :-1]
+                new_data.append([x_src, x_tgt, y_tgt])
+    non_augmented_data = data.copy()
+    data = new_data
     # save non-augmented data for later testing
 
     # CUT SEQUENCE LENGTH
