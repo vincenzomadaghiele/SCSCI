@@ -43,6 +43,8 @@ class MelSpectrogramDataset(Dataset):
         self.std = float(np.array(images).std())
         self.normTransform = transforms.Compose([NormalizeTensor(self.mean, self.std)])
 
+
+
 class Encoder(nn.Module):
     def __init__(self, input_dim, hidden_dim, latent_dim):
         super(Encoder, self).__init__()
@@ -145,9 +147,13 @@ class VAE(nn.Module):
         return self.bottleneck(self.encoder(x))[0]
 
     def forward(self, x):
+        # print(x.shape)
         h = self.encoder(x)
+        # print(h.shape)
         z, mu, logvar = self.bottleneck(h)
+        # print(z.shape)
         z = self.fc3(z)
+        # print(z.shape)
         return self.decoder(z), mu, logvar
 
 
@@ -161,11 +167,11 @@ if __name__ == "__main__":
         DEVICE = torch.device("mps")
 
     # load data
-    corpus_name = 'elena-study'
-    src_track_name = 'elena-src'
+    corpus_name = 'petter-study'
+    src_track_name = 'petter-src'
     corpus_path = f'corpus/{corpus_name}'
     corpus_dirs = os.listdir(corpus_path)
-    corpus_dirs = [c for c in corpus_dirs if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','.DS_Store','src_full','finetune']]
+    corpus_dirs = [c for c in corpus_dirs if os.path.isdir(f'{corpus_path}/{c}') and c not in ['info','trained_VAE','trained_CNNVAE','.DS_Store','src_full','finetune']]
     corpus_paths = [f'{corpus_path}/{song_name}/mel/{src_track_name}.npy' for song_name in corpus_dirs]
 
     mels = []
@@ -205,13 +211,13 @@ if __name__ == "__main__":
     hidden_dim = 128
     latent_dim = 8
     lr = 1e-3
-    epochs = 500
+    epochs = 200
 
     # encoder = Encoder(input_dim=image_size_flat, hidden_dim=hidden_dim, latent_dim=latent_dim)
     # decoder = Decoder(latent_dim=latent_dim, hidden_dim = hidden_dim, output_dim = image_size_flat)
     # model = Model(Encoder=encoder, Decoder=decoder).to(DEVICE)
 
-    model = VAE(image_channels=1, h_dim=1024, z_dim=8).to(DEVICE)
+    model = VAE(image_channels=1, h_dim=1024, z_dim=latent_dim).to(DEVICE)
 
     BCE_loss = nn.BCELoss()
     def loss_function(x, x_hat, mean, log_var):
@@ -220,7 +226,7 @@ if __name__ == "__main__":
         return reproduction_loss + KLD
 
     optimizer = Adam(model.parameters(), lr=lr)
-    model_name = 'VAE'
+    model_name = 'CNNVAE'
     save_dir = f'corpus/{corpus_name}/trained_{model_name}'
     os.makedirs(f'{save_dir}/images', exist_ok=True)
 
@@ -242,8 +248,8 @@ if __name__ == "__main__":
             loss.backward()
             optimizer.step()
         if (epoch + 1) % eval_interval == 0:
-            print(f"Epoch [{epoch + 1}/{epochs}], train loss: {overall_loss / ((batch_idx+1)*batch_size):.4f}")
-            train_losses.append(overall_loss / ((batch_idx+1)*batch_size))
+            print(f"Epoch [{epoch + 1}/{epochs}], train loss: {overall_loss / ((batch_idx+1)*batch_size * image_size*image_size):.4f}")
+            train_losses.append(overall_loss / ((batch_idx+1)*batch_size * image_size*image_size))
             model.eval()
 
             test_loss = 0
@@ -254,11 +260,11 @@ if __name__ == "__main__":
                 x_hat, mean, log_var = model(x)
                 loss = loss_function(x, x_hat, mean, log_var)
                 test_loss += loss.item()
-            print(f"                test loss: {test_loss / ((batch_idx+1)*batch_size):.4f}")
-            test_losses.append(test_loss / ((batch_idx+1)*batch_size))
+            print(f"                test loss: {test_loss / ((batch_idx+1)*batch_size * image_size*image_size):.4f}")
+            test_losses.append(test_loss / ((batch_idx+1)*batch_size * image_size*image_size))
             if test_loss / ((batch_idx+1)*batch_size) < best_loss:
                 torch.save(model.state_dict(), f'{save_dir}/{model_name}.pth')
-                best_loss = test_loss / ((batch_idx+1)*batch_size)
+                best_loss = test_loss / ((batch_idx+1)*batch_size * image_size*image_size)
 
         if (epoch + 1) % 50 == 0:
             with torch.no_grad():
@@ -267,8 +273,8 @@ if __name__ == "__main__":
                     x = x.to(DEVICE)
                     x_hat, mean, log_var = model(x)
                     break
-            # x = x.view(x.shape[0], image_size, image_size)
-            # x_hat = x_hat.view(x.shape[0], image_size, image_size)
+            x = x.view(x.shape[0], image_size, image_size)
+            x_hat = x_hat.view(x.shape[0], image_size, image_size)
             fig, ax = plt.subplots(2, 7, figsize=(15, 4))
             for i in range(7):
                 ax[0, i].imshow(x[i].cpu().numpy())
@@ -293,14 +299,17 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(f'{save_dir}/{model_name}.pth', weights_only=True))
     model.eval()
     latents = []
+    mels = []
     with torch.no_grad():
         for x in train_loader:
-            x = x.view(x.shape[0], image_size_flat)
+            # x = x.view(x.shape[0], image_size_flat)
             x = x.to(DEVICE)
-            latent, _ = model.Encoder(x)
+            latent = model.encoder(x)
+            latent, _, _ = model.bottleneck(latent)
             latent = latent.cpu().numpy()
             for i in range(latent.shape[0]):
                 latents.append(latent[i])
+                mels.append(x[i,:,:])
 
     full_latents = np.array([lat.reshape(-1) for lat in latents])
     scaler = StandardScaler()
@@ -321,17 +330,59 @@ if __name__ == "__main__":
     plt.close(fig)
 
     with torch.no_grad():
-        noise = torch.randn(batch_size, latent_dim).to(DEVICE)
-        generated_images = model.Decoder(noise)
+        IDX = 0
+        neighb_lat = torch.from_numpy(full_latents[IDX,:]).to(DEVICE)
+        # find 5 nearest neighbors
+        from sklearn.neighbors import NearestNeighbors
+        nearn = NearestNeighbors(n_neighbors=16, algorithm='auto').fit(full_latents)
+        query_point = full_latents[IDX,:].reshape(1, -1)
+        distances, indices = nearn.kneighbors(query_point)
+        neighb_lat = [ full_latents[IDX,:] ]
+        original_mels = [ mels[IDX] ]
+        for j in range(15):
+            neighb_lat.append( full_latents[indices[0][j],:] )
+            original_mels.append( mels[indices[0][j]] )
+        neighb_lat = np.array(neighb_lat)
+        neighb_lat = torch.from_numpy(neighb_lat).to(DEVICE)
+        generated_images = model.decoder(model.fc3(neighb_lat))
         generated_images = generated_images.view(generated_images.shape[0], image_size, image_size)
 
     fig, ax = plt.subplots(2,8, figsize=(15, 4))
     for i in range(8):
-        ax[0,i].imshow(generated_images[i].cpu().numpy())
+        ax[0,i].imshow(original_mels[i][0,:,:].cpu().numpy())
         ax[0,i].axis('off')
-        ax[1,i].imshow(generated_images[i+8].cpu().numpy())
+        # ax[1,i].imshow(generated_images[i+8].cpu().numpy())
+        ax[1,i].imshow(generated_images[i].cpu().numpy())
         ax[1,i].axis('off')
-    fig.savefig(f'{save_dir}/{model_name}_latent_gen.png')
+    fig.savefig(f'{save_dir}/{model_name}_latent_gen1.png')
+    plt.close(fig)
+
+    with torch.no_grad():
+        IDX = 1
+        neighb_lat = torch.from_numpy(full_latents[IDX,:]).to(DEVICE)
+        # find 5 nearest neighbors
+        from sklearn.neighbors import NearestNeighbors
+        nearn = NearestNeighbors(n_neighbors=16, algorithm='auto').fit(full_latents)
+        query_point = full_latents[IDX,:].reshape(1, -1)
+        distances, indices = nearn.kneighbors(query_point)
+        neighb_lat = [ full_latents[IDX,:] ]
+        original_mels = [ mels[IDX] ]
+        for j in range(15):
+            neighb_lat.append( full_latents[indices[0][j],:] )
+            original_mels.append( mels[indices[0][j]] )
+        neighb_lat = np.array(neighb_lat)
+        neighb_lat = torch.from_numpy(neighb_lat).to(DEVICE)
+        generated_images = model.decoder(model.fc3(neighb_lat))
+        generated_images = generated_images.view(generated_images.shape[0], image_size, image_size)
+
+    fig, ax = plt.subplots(2,8, figsize=(15, 4))
+    for i in range(8):
+        ax[0,i].imshow(original_mels[i][0,:,:].cpu().numpy())
+        ax[0,i].axis('off')
+        # ax[1,i].imshow(generated_images[i+8].cpu().numpy())
+        ax[1,i].imshow(generated_images[i].cpu().numpy())
+        ax[1,i].axis('off')
+    fig.savefig(f'{save_dir}/{model_name}_latent_gen2.png')
     plt.close(fig)
 
     np.save(f'{save_dir}/latents.npy', full_latents)

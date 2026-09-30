@@ -41,7 +41,7 @@ def batchify(data, batch_size=16):
     return batches
 
 
-def augmentBatch(batch, augmentation_percentage = 0.7):
+def augmentBatch(batch, augmentation_percentage=0.1):
 
     # DATA AUGMENTATION
     rmsTranspose = True
@@ -71,7 +71,6 @@ def augmentBatch(batch, augmentation_percentage = 0.7):
             if tgt_seq_len == 0:
                 tgt_seq_len = batch[1][i, :, 0].shape[0]
             x_tgt = batch[1][i, :tgt_seq_len, :]
-
             # AUGMENT SEQUENCE
             y_tgt = batch[2][i, :]
 
@@ -117,23 +116,20 @@ def augmentBatch(batch, augmentation_percentage = 0.7):
                 if np.random.rand() > 0.8:
                     x_src[random.randint(0, src_len), :-1] = x_src[random.randint(0, src_len), :-1]
                     x_tgt[random.randint(0, tgt_len), :-1] = x_tgt[random.randint(0, tgt_len), :-1]
-
-            batch[0][i, :src_seq_len, :] = x_src            
+            batch[0][i, :src_seq_len, :] = x_src
             batch[1][i, :tgt_seq_len, :] = x_tgt
             batch[2][i, :] = y_tgt
-
     return batch
 
-
 # train and validation loops
-def trainLoop(model, train_dataloader, loss_fn, opt, device, PAD_TOKEN):
+def trainLoop(model, train_dataloader, loss_fn, opt, device, PAD_TOKEN, augment_perc):
     model.train()
     total_loss = 0
     for batch in train_dataloader:
-        batch = augmentBatch(batch)
+        batch = augmentBatch(batch, augment_perc)
         X = torch.tensor(batch[0]).type(torch.FloatTensor).to(device)
         y = torch.tensor(batch[1]).type(torch.FloatTensor).to(device)
-        y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0],batch[2].shape[1])
+        y_expected = torch.tensor(batch[2]).type(torch.FloatTensor).to(device).reshape(1, batch[2].shape[0], batch[2].shape[1])
         src_pad_mask = model.create_pad_mask(X, pad_token=PAD_TOKEN).to(device).to(torch.bool)
         tgt_pad_mask = model.create_pad_mask(y, pad_token=PAD_TOKEN).to(device).to(torch.bool)
         pred = model(X, y, src_pad_mask=src_pad_mask[:,:,0], tgt_pad_mask=tgt_pad_mask[:,:,0])
@@ -186,11 +182,11 @@ if __name__ == '__main__':
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
 
-    corpus_name = 'elena-study-finetune'
+    corpus_name = 'andrea-study'
     corpus_path = f'corpus/{corpus_name}'
-    src_track_name = 'elena-src'
-    tgt_track_name = 'elena-tgt'
-    SYNTH_NAME = 'Granular'
+    src_track_name = 'andrea-src'
+    tgt_track_name = 'andrea-tgt'
+    SYNTH_NAME = 'Rung'
 
     with open(f"synth/params/{SYNTH_NAME}.txt", "r") as file:
         params = file.readlines()
@@ -201,7 +197,7 @@ if __name__ == '__main__':
     training_parameters['sound_corpus_path'] = corpus_path
     training_parameters['source_track_name'] = src_track_name
     training_parameters['target_track_name'] = tgt_track_name
-    training_parameters['batch_size'] = 64
+    training_parameters['batch_size'] = 8
     training_parameters['num_frequency'] = 8
     training_parameters['dataset_training_percentage'] = 0.8
     training_parameters['dataset_validation_percentage'] = 0.1
@@ -223,6 +219,7 @@ if __name__ == '__main__':
     training_parameters['N_latents_tgt'] = N_latents_tgt
     training_parameters['synth_name'] = SYNTH_NAME
     training_parameters['augment_amt'] = 0 # augments data by this amount
+    training_parameters['augment_perc_max'] = 0.5 # augments data by this amount
     model_load_path = None
 
     random.seed(training_parameters['seed'])
@@ -488,7 +485,11 @@ if __name__ == '__main__':
     print("Training and validating model")
     for epoch in range(epochs):
         print("-"*25, f"Epoch {epoch + 1}","-"*25)
-        train_loss = trainLoop(model, train_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
+        if epoch > epochs * 0.15:
+            augment_perc = training_parameters['augment_perc_max'] * (epoch/epochs)
+        else: 
+            augment_perc = 0
+        train_loss = trainLoop(model, train_dataloader, loss_fn, opt, device, training_parameters['pad_token'], augment_perc)
         train_loss_list += [train_loss]
         writer.add_scalar("Loss/train", train_loss, epoch)
         validation_loss = validationLoop(model, val_dataloader, loss_fn, opt, device, training_parameters['pad_token'])
