@@ -54,7 +54,7 @@ class FM(Patch):
         op1 = FMOp(frequency, *params[1], fm=op2)
         op0 = FMOp(frequency, *params[0], fm=op1+op2)
         env = ADSREnvelope(A, D, S, R, gate=gate)
-        output = (op0 + op1) * gain * env * 4
+        output = Tanh(op0 + op1) * gain * env 
         # out = Squiz(input=(op0 + op1), rate=0.7, chunk_size=1)
         # output = out * gain * env
 

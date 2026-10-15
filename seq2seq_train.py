@@ -182,7 +182,7 @@ if __name__ == '__main__':
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
 
-    corpus_name = 'andrea-study-plus'
+    corpus_name = 'andrea-study-plus-finetune'
     corpus_path = f'corpus/{corpus_name}'
     src_track_name = 'andrea-src'
     tgt_track_name = 'andrea-tgt'
@@ -218,7 +218,7 @@ if __name__ == '__main__':
     training_parameters['N_latents_src'] = 8
     training_parameters['N_latents_tgt'] = N_latents_tgt
     training_parameters['synth_name'] = SYNTH_NAME
-    training_parameters['augment_amt'] = 20 # augments data by this amount
+    training_parameters['augment_amt'] = 15 # augments data by this amount
     training_parameters['augment_perc_max'] = 0.5 # augments data by this amount
     model_load_path = None
 
@@ -512,46 +512,46 @@ if __name__ == '__main__':
     evaluation_metrics = {}
     model_load_path = f'{logdir}/best_model.pth'
     model.load_state_dict(torch.load(model_load_path, weights_only=True))
-    # CUT SEQUENCE LENGTH
-    MAX_SEQ_LEN = training_log['max_sequence_length']
-    new_data = []
-    for datum in non_augmented_data:
-        if datum[0].shape[0] > 0 and datum[1].shape[0] > 0:
-            x_src = datum[0]
-            x_src[:,-1] = src_time_scaler.transform(x_src[:,-1].reshape(-1,1)).reshape(-1)
-            x_tgt = datum[1]
-            x_tgt[:,-1] = src_time_scaler.transform(x_tgt[:,-1].reshape(-1,1)).reshape(-1)
-            x_src = x_src[-MAX_SEQ_LEN:,:]
-            x_tgt = x_tgt[-MAX_SEQ_LEN:,:]
-            new_data.append([x_src, x_tgt, datum[2]])
-    data = new_data
-    # PAD SEQUENCES
-    PAD_TOKEN = training_parameters['pad_token']
-    new_data = []
-    for datum in data:
-        x_src = np.ones((MAX_SEQ_LEN, len(features_source)+1)) * PAD_TOKEN
-        x_tgt = np.ones((MAX_SEQ_LEN, len(features_target)+1)) * PAD_TOKEN
-        x_src[:datum[0].shape[0],:] = datum[0]
-        x_tgt[:datum[1].shape[0],:] = datum[1]
-        new_data.append([x_src, x_tgt, datum[2]])
-    data = new_data
+    # # CUT SEQUENCE LENGTH
+    # MAX_SEQ_LEN = training_log['max_sequence_length']
+    # new_data = []
+    # for datum in non_augmented_data:
+    #     if datum[0].shape[0] > 0 and datum[1].shape[0] > 0:
+    #         x_src = datum[0]
+    #         x_src[:,-1] = src_time_scaler.transform(x_src[:,-1].reshape(-1,1)).reshape(-1)
+    #         x_tgt = datum[1]
+    #         x_tgt[:,-1] = src_time_scaler.transform(x_tgt[:,-1].reshape(-1,1)).reshape(-1)
+    #         x_src = x_src[-MAX_SEQ_LEN:,:]
+    #         x_tgt = x_tgt[-MAX_SEQ_LEN:,:]
+    #         new_data.append([x_src, x_tgt, datum[2]])
+    # data = new_data
+    # # PAD SEQUENCES
+    # PAD_TOKEN = training_parameters['pad_token']
+    # new_data = []
+    # for datum in data:
+    #     x_src = np.ones((MAX_SEQ_LEN, len(features_source)+1)) * PAD_TOKEN
+    #     x_tgt = np.ones((MAX_SEQ_LEN, len(features_target)+1)) * PAD_TOKEN
+    #     x_src[:datum[0].shape[0],:] = datum[0]
+    #     x_tgt[:datum[1].shape[0],:] = datum[1]
+    #     new_data.append([x_src, x_tgt, datum[2]])
+    # data = new_data
 
-    # shuffle sequences
-    np.random.shuffle(data)
+    # # shuffle sequences
+    # np.random.shuffle(data)
 
-    # train-validation split
-    train_perc = training_parameters['dataset_training_percentage']
-    val_perc = training_parameters['dataset_validation_percentage']
-    train_data = data[:int(len(data)*train_perc)]
-    test_data = data[int(len(data)*train_perc):]
-    val_data = train_data[int(len(train_data)*(1-val_perc)):]
-    train_data = train_data[:int(len(train_data)*(1-val_perc))]
+    # # train-validation split
+    # train_perc = training_parameters['dataset_training_percentage']
+    # val_perc = training_parameters['dataset_validation_percentage']
+    # train_data = data[:int(len(data)*train_perc)]
+    # test_data = data[int(len(data)*train_perc):]
+    # val_data = train_data[int(len(train_data)*(1-val_perc)):]
+    # train_data = train_data[:int(len(train_data)*(1-val_perc))]
 
-    # make training batches
-    batch_size = 8
-    train_dataloader = batchify(train_data, batch_size)
-    val_dataloader = batchify(val_data, batch_size)
-    test_dataloader = batchify(test_data, batch_size)
+    # # make training batches
+    # batch_size = 8
+    # train_dataloader = batchify(train_data, batch_size)
+    # val_dataloader = batchify(val_data, batch_size)
+    # test_dataloader = batchify(test_data, batch_size)
 
     # compute R2 score
     train_loss = validationLoop(model, train_dataloader, loss_fn, opt, device, training_parameters['pad_token'])

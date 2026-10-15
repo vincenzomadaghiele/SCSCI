@@ -45,8 +45,11 @@ if __name__ == "__main__":
 
     # LOAD VAE FOR SRC ENCODING
     DEVICE = torch.device("cpu")
-    # corpus_name = 'elena-study'
+    # corpus_name = 'petter-study'
+    # corpus_name = 'petter-study-finetune'
     corpus_name = 'elena-study-finetune'
+    # corpus_name = 'andrea-study-finetune'
+    # corpus_name = 'andrea-study-plus'
     corpus_path = f'corpus/{corpus_name}'
     VAE_model_name = f'{corpus_path}/trained_VAE/VAE.pth'
     hidden_dim = 128 # load these from pre-saved JSON
@@ -64,9 +67,12 @@ if __name__ == "__main__":
     VAE_latents_min = VAE_latents.min(axis=0) + 2
 
     # LOAD NORMALIZING FLOW MODEL FOR TGT ENCODING AND DECODING
-    SYNTH_NAME = 'Granular'
+    # SYNTH_NAME = 'FM' # PETTER
+    SYNTH_NAME = 'Granular' # ELENA
+    # SYNTH_NAME = 'Rung' # ANDREA
     useTimbre = True
-    quantizePitch = True
+    quantizePitch = True # ELENA PETTER
+    # quantizePitch = False # ANDREA
     flow_model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     model_path = f'./synth/trained_flows/{SYNTH_NAME}/models'
     flow_model = torch.load(f'{model_path}/{flow_model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
@@ -78,10 +84,16 @@ if __name__ == "__main__":
     latents_max = total_latents.max(axis=0) - 3
     latents_min = total_latents.min(axis=0) + 3
 
+    # latents_max = total_latents.max(axis=0) - 2 # PETTER
+    # latents_min = total_latents.min(axis=0) + 2
+
+
     # LOAD TRANSFORMER MODEL TO COMPUTE RESPONSES
-    # transformer_name = '1788616058-transformerDiscreteT2V-BEST'
-    # transformer_name = '1790248725-transformerDiscreteT2V-A'
-    transformer_name = '1790248738-transformerDiscreteT2V-B'
+    # transformer_name = '1787764778-transformerDiscreteT2V-BEST' # PETTER
+    # transformer_name = '1788262110-transformerDiscreteT2V-B' # PETTER
+    transformer_name = '1790248738-transformerDiscreteT2V-B' # ELENA
+    # transformer_name = '1790085993-transformerDiscreteT2V-A' # ANDREA OLD
+    # transformer_name = '1790768071-transformerDiscreteT2V' # ANDREA GOOD
     model_dir = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/{transformer_name}'
     with open(f'{model_dir}/training_config.json', 'r') as f:
         training_parameters = json.load(f)
@@ -127,8 +139,8 @@ if __name__ == "__main__":
     audio_in = audio_in[0]
     panned_audio_in = StereoPanner( audio_in, pan=1 ) #* 0.5
     graph.play(panned_audio_in) 
-    impulse = StereoPanner( Impulse(frequency=0), pan=0)
-    graph.play(impulse) 
+    # impulse = StereoPanner( Impulse(frequency=0), pan=0)
+    # graph.play(impulse) 
 
     # LOAD SYNTHESIZER
     if SYNTH_NAME == 'TimbreTheremin':
@@ -183,6 +195,7 @@ if __name__ == "__main__":
     model_inference_time_s = 0.003
     inference_time_samples = model_inference_time_s * sr
     tgt_samples_left = 0
+    # silence_threshold = 0.008 # SILENCE THREHSOLD NEEDS TO BE ADAPTED TO LIVE SITUATION
     silence_threshold = 0.005 # SILENCE THREHSOLD NEEDS TO BE ADAPTED TO LIVE SITUATION
 
     # UTILS FUNCTION
@@ -433,7 +446,8 @@ if __name__ == "__main__":
             
                 # print(y.reshape(-1), y_pred)
 
-                if pred_rms < 0.001:
+                # if pred_rms < 0.001: # ANDREA
+                if pred_rms < 0.0001: # ELENA PETTER
                     sound_segment = np.zeros(pred_duration)
                     y_pred[:N_latents_tgt] = np.zeros_like(y_pred[:N_latents_tgt])
                     y_pred[N_latents_tgt] = 0

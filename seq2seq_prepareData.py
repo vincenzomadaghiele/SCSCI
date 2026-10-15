@@ -17,7 +17,7 @@ if __name__ == '__main__':
     DEVICE = torch.device("cpu")
 
     # LOAD EVENT SEQUENCES CORPUS
-    corpus_name = 'andrea-study-plus'
+    corpus_name = 'andrea-study-plus-finetune'
     src_track_name = 'andrea-src'
     tgt_track_name = 'andrea-tgt'
     corpus_path = f'corpus/{corpus_name}'
