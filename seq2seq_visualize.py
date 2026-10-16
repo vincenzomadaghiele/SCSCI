@@ -16,6 +16,7 @@ from VAE_train import Encoder, Decoder, Model
 if __name__ == '__main__': 
 
     # LOAD VAE TIMBRE SPACE
+    # corpus_name = 'elena-study-finetune'
     corpus_name = 'andrea-study-plus'
     X = np.load(f'./corpus/{corpus_name}/trained_VAE/latents.npy')
     VAE_scaler = StandardScaler()
@@ -26,7 +27,12 @@ if __name__ == '__main__':
     X_PCA_VAE = plot_scaler_VAE.fit_transform(X_PCA)
 
     # LOAD FLOW TIMBRE SPACE
+    # SYNTH_NAME = 'Granular'
     SYNTH_NAME = 'Rung'
+    # SYNTH_NAME = 'FM'
+    # N_latents_tgt = 7 # Granular
+    N_latents_tgt = 3 # Rung
+    # N_latents_tgt = 6 # FM
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     X = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{model_name}/latents.npy')
     scaler_FLOW = StandardScaler()
@@ -36,21 +42,74 @@ if __name__ == '__main__':
     plot_scaler_FLOW  = StandardScaler()
     X_PCA_FLOW = plot_scaler_FLOW.fit_transform(X_PCA)
 
+    def stretch_contrast(img):
+        img_min = np.min(img)
+        img_max = np.max(img)
+        return (img - img_min) / (img_max - img_min)
 
-    # path = f'transformer/trained/elena-study-finetune_Granular/1790248738-transformerDiscreteT2V-B/01_live_recordings'
+    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+    heatmap, xedges, yedges = np.histogram2d(X_PCA_VAE[:,0], X_PCA_VAE[:,1], bins=250)
+    heatmap = gaussian_filter(heatmap, sigma=4)
+    heatmap = stretch_contrast(heatmap)
+    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+    ax[0].cla()
+    ax[0].imshow(heatmap.T, extent=extent, origin='lower', cmap='viridis', alpha=1)
+    ax[0].set_xlim([-2.4, 2.4])
+    ax[0].set_ylim([-2.4, 2.4])
+    ax[0].set_xticks([])
+    ax[0].set_yticks([])
+    ax[0].set_aspect('equal')
+    ax[0].axis('off')
+    ax[0].margins(0)
+    heatmap, xedges, yedges = np.histogram2d(X_PCA_FLOW[:,0], X_PCA_FLOW[:,1], bins=250)
+    heatmap = gaussian_filter(heatmap, sigma=4)
+    heatmap = stretch_contrast(heatmap)
+    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+    ax[1].cla()
+    ax[1].imshow(heatmap.T, extent=extent, origin='lower', cmap='magma', alpha=1)
+    ax[1].set_xlim([-2.4, 2.4])
+    ax[1].set_ylim([-2.4, 2.4])
+    ax[1].set_xticks([])
+    ax[1].set_yticks([])
+    ax[1].set_aspect('equal')
+    ax[1].axis('off')
+    ax[1].margins(0)
+    plt.show()
+
+
+    # path = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/1790248738-transformerDiscreteT2V-B/01_live_recordings'
     # song_name = '1791309108'
-    path = f'transformer/trained/andrea-study-plus_Rung/1790768071-transformerDiscreteT2V/01_live_recordings'
+    path = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/1790768071-transformerDiscreteT2V/01_live_recordings'
     song_name = '1791308201'
+    # path = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/1788262110-transformerDiscreteT2V-B/01_live_recordings'
+    # song_name = '1791306899'
     signal_src, _ = librosa.load(f'{path}/{song_name}/performance_src.wav', sr=sr, mono=True)
     signal_tgt, _ = librosa.load(f'{path}/{song_name}/performance_tgt.wav', sr=sr, mono=True)
 
     SRC_events = extractEvents(signal_src, FFT_window, sr, hop_size, num_MFCC, num_MEL, 
                                 min_event_duration_samples, max_event_duration_samples)
 
-    # ADAPT TGT CSV
-    TGT_events = extractEvents(signal_tgt, FFT_window, sr, hop_size, num_MFCC, num_MEL, 
-                                min_event_duration_samples, max_event_duration_samples)
+    # LOAD FLOW LATENTS OF TGT
+    df_tgt = pd.read_csv(f'{path}/{song_name}/tgt_events.csv')
+    print(df_tgt.head())
+    DURATION_DF = (df_tgt['event_start'].values[-1] + df_tgt['event_duration'].values[-1]) / sr
+    DURATION_REAL = 12 * 60 + 15
+    # ratio = DURATION_REAL / DURATION_DF * 0.84 # ELENA
+    ratio = DURATION_REAL / DURATION_DF * 0.8 # ANDREA
+    # ratio = DURATION_REAL / DURATION_DF * 1.5 # PETTER
+    df_tgt['event_duration'] = (df_tgt['event_duration'].values * ratio).astype(int)
+    durations = df_tgt['event_duration'].values
+    start_sample = df_tgt['event_duration'].values[0]
+    new_starts = []
+    for dur in durations:
+        new_starts.append(start_sample)
+        start_sample += dur
+    df_tgt['event_start'] = new_starts
+    df_tgt['filename'] = [f'{path}/{song_name}/performance_tgt.wav' for _ in range(df_tgt.shape[0])]
 
+    # ADAPT TGT CSV
+    # TGT_events = extractEvents(signal_tgt, FFT_window, sr, hop_size, num_MFCC, num_MEL, 
+    #                             min_event_duration_samples, max_event_duration_samples)
 
     DEVICE = torch.device("cpu")
 
@@ -75,7 +134,7 @@ if __name__ == '__main__':
             event_latents = event_latents.tolist()
         else:
             event_latents = (np.zeros(latent_dim)).tolist()
-        event_latents += [event['rms'], event['pitch'], event['event_duration'], event['event_start'], song_name]
+        event_latents += [event['rms'], event['pitch'], event['event_duration'], event['event_start'], f'{path}/{song_name}/performance_src.wav']
         src_events.append(event_latents)
     src_events = np.array(src_events)
     columns = [f'latent-{j}' for j in range(latent_dim)]
@@ -87,41 +146,14 @@ if __name__ == '__main__':
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     flow_model = torch.load(f'{model_path}/{model_name}.model', weights_only=False, map_location=DEVICE).to(DEVICE)
     flow_model.eval()
-    # latent_dim = 7
-
-    # # COMPUTE SRC LATENTS
-    # tgt_events = []
-    # for event in TGT_events:
-    #     if event['rms'] != 0:
-    #         event_latents, _ = melToFlowLatents(event['mel'], flow_model, -5.195, 3.284)
-    #         event_latents = event_latents.tolist()
-    #     else:
-    #         event_latents = (np.zeros(latent_dim)).tolist()
-    #     event_latents += [event['rms'], event['pitch'], event['event_duration'], event['event_start'], song_name]
-    #     tgt_events.append(event_latents)
-    # tgt_events = np.array(tgt_events)
-    # columns = [f'latent-{j}' for j in range(latent_dim)]
-    # columns += ['rms', 'pitch', 'event_duration', 'event_start', 'filename']
-    # df_tgt = pd.DataFrame(tgt_events, columns=columns)
-
 
     # PLOT EVENTS
     sample_rate = 22050
-    sample_start_s = 360+40
-    sample_duration_s = 40
+    sample_start_s = 360+30
+    sample_duration_s = 120
 
-    SRC_file_event = {}
-    SRC_file_event['filename'] = f'{path}/{song_name}/performance_src.wav'
-    SRC_file_event['song_name'] = 'performance_src'
-    SRC_file_event['events'] = SRC_events
-    TGT_file_event = {}
-    TGT_file_event['filename'] = f'{path}/{song_name}/performance_tgt.wav'
-    TGT_file_event['song_name'] = 'performance_tgt'
-    TGT_file_event['events'] = TGT_events
-    # plotEvents(SRC_file_event, sr, sample_start_s=sample_start_s, sample_duration_s=sample_duration_s)
-    plotPairedEvents(SRC_file_event, TGT_file_event, sample_rate)
-    plotPairedEvents(SRC_file_event, TGT_file_event, sample_rate, sample_start_s=sample_start_s, sample_duration_s=sample_duration_s)
-
+    plotPairedEvents(df_src, df_tgt, sr, isDfin=True)
+    plotPairedEvents(df_src, df_tgt, sr, sample_start_s=sample_start_s, sample_duration_s=sample_duration_s, isDfin=True)
 
     # filter time for scatterplot
     sample_start = sample_start_s * sample_rate
@@ -172,13 +204,8 @@ if __name__ == '__main__':
     plt.show()
 
 
-    # LOAD FLOW LATENTS OF TGT
-    df_tgt = pd.read_csv(f'{path}/{song_name}/tgt_events.csv')
-    print(df_tgt.head())
-
     # filter time for scatterplot
     sample_start = sample_start_s * sample_rate
-    # sample_start = sample_start_s * 27817
     df_tgt['event_start'] = df_tgt['event_start'].astype(np.float32)
     df_tgt['event_duration'] = df_tgt['event_duration'].astype(np.float32)
     if sample_duration_s:
@@ -187,7 +214,6 @@ if __name__ == '__main__':
     if sample_duration_s and (sample_start+sample_duration) < signal_tgt.shape[0]:
         df_tgt = df_tgt[df_tgt['event_start'] < sample_start+sample_duration]
 
-    N_latents_tgt = 3
     FLOW_latents = df_tgt[[f'latent-{j}' for j in range(N_latents_tgt)]].values.astype(np.float32)
     FLOW_latents = FLOW_latents[~np.all(FLOW_latents == 0, axis=1)]
     # X = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{model_name}/latents.npy')

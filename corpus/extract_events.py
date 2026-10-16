@@ -262,6 +262,7 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	if sample_duration_s:
 		sample_duration = sample_duration_s * sample_rate
 	plot_feature_src = 'pitch'
+	# plot_feature_src = 'rms'
 	plot_df_src[plot_feature_src] = plot_df_src[plot_feature_src].astype(float)
 	plot_df_src['event_start'] = plot_df_src['event_start'].astype(float)
 	plot_df_src['event_duration'] = plot_df_src['event_duration'].astype(float)
@@ -290,6 +291,7 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	if sample_duration_s:
 		sample_duration = sample_duration_s * sample_rate
 	plot_feature_tgt = 'pitch'
+	# plot_feature_tgt = 'rms'
 	plot_df_tgt[plot_feature_tgt] = plot_df_tgt[plot_feature_tgt].astype(float)
 	plot_df_tgt['event_start'] = plot_df_tgt['event_start'].astype(float)
 	plot_df_tgt['event_duration'] = plot_df_tgt['event_duration'].astype(float)
@@ -299,43 +301,56 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 		plot_df_tgt = plot_df_tgt[plot_df_tgt['event_start'] < sample_start+sample_duration]
 	plot_df_tgt['event_start'] = plot_df_tgt['event_start'] - sample_start
 
-	fig, ax = plt.subplots(2, figsize=(16, 6))
+	plt.rcParams.update({
+		"font.family": "serif",
+		"mathtext.fontset": "cm" 
+	})
+
+	fig, ax = plt.subplots(2, figsize=(16, 6), layout="constrained")
 	if sample_duration_s and (sample_start+sample_duration) < signal_src.shape[0]:
+		signal_src = adjustAmplitude(signal_src, FFT_window, hop_size)
 		librosa.display.waveshow(y=signal_src[sample_start:sample_start+sample_duration], sr=sample_rate, color="black", axis='time', ax=ax[0], alpha=0.2)
 	elif sample_start < signal_src.shape[0]:
+		signal_src = adjustAmplitude(signal_src, FFT_window, hop_size)
 		librosa.display.waveshow(y=signal_src[sample_start:], sr=sample_rate, color="black", axis='time', ax=ax[0], alpha=0.2)
 
 	if sample_duration_s and (sample_start+sample_duration) < signal_tgt.shape[0]:
+		signal_tgt = adjustAmplitude(signal_tgt, FFT_window, hop_size)
 		librosa.display.waveshow(y=signal_tgt[sample_start:sample_start+sample_duration], sr=sample_rate, color="black", axis='time', ax=ax[1], alpha=0.2)
 	elif sample_start < signal_tgt.shape[0]:
+		signal_tgt = adjustAmplitude(signal_tgt, FFT_window, hop_size)
 		librosa.display.waveshow(y=signal_tgt[sample_start:], sr=sample_rate, color="black", axis='time', ax=ax[1], alpha=0.2)
 
 	ax[0].scatter(librosa.samples_to_time(plot_df_src['event_start'], sr=sample_rate), 
-				y=plot_df_src[plot_feature_src], label=plot_feature_src, edgecolors='r', facecolors='none')
+				y=plot_df_src[plot_feature_src], label=r'$p_{B,j}$', edgecolors='r', facecolors='none')
 	ax[0].hlines(y=plot_df_src[plot_feature_src],
 			xmin=librosa.samples_to_time(plot_df_src['event_start'], sr=sample_rate), 
 			xmax=librosa.samples_to_time(plot_df_src['event_start']+plot_df_src['event_duration'], sr=sample_rate), 
-			linewidth=1, label='event duration', colors='r')
+			linewidth=1, label=r'$d_{B,j}$', colors='r')
 	ax[0].vlines(librosa.samples_to_time(plot_df_src['event_start'], sr=sample_rate), 
-		-1, 1, color='r', alpha=0.1, linestyle='--', label='onsets', linewidth=0.5)
+		-1, 1, color='r', alpha=0.1, linestyle='--', label=r'$o_{B,j}$', linewidth=0.5)
 
 	ax[1].scatter(librosa.samples_to_time(plot_df_tgt['event_start'], sr=sample_rate), 
-				y=plot_df_tgt[plot_feature_tgt], label=plot_feature_tgt, edgecolors='b', facecolors='none')
+				y=plot_df_tgt[plot_feature_tgt], label=r'$p_{A,i}$', edgecolors='b', facecolors='none')
 	ax[1].hlines(y=plot_df_tgt[plot_feature_tgt],
 			xmin=librosa.samples_to_time(plot_df_tgt['event_start'], sr=sample_rate), 
 			xmax=librosa.samples_to_time(plot_df_tgt['event_start']+plot_df_tgt['event_duration'], sr=sample_rate), 
-			linewidth=1, label='event duration', colors='b')
+			linewidth=1, label=r'$d_{A,i}$', colors='b')
 	ax[1].vlines(librosa.samples_to_time(plot_df_tgt['event_start'], sr=sample_rate), 
-		-1, 1, color='b', alpha=0.1, linestyle='--', label='onsets', linewidth=0.5)
+		-1, 1, color='b', alpha=0.1, linestyle='--', label=r'$o_{A,i}$', linewidth=0.5)
 
-	ax[0].legend()
-	ax[1].legend()
-	ax[0].set_ylabel(plot_feature_src)
-	ax[1].set_ylabel(plot_feature_tgt)
-	ax[0].set_xlabel([])
-	ax[1].set_xlabel('time [s]')
-	ax[0].set_title(src_audio_filename.split('/')[-1].split('.')[0])
-	ax[1].set_title(tgt_audio_filename.split('/')[-1].split('.')[0])
+	ax[0].legend(fontsize=16)
+	ax[1].legend(fontsize=16)
+	ax[0].set_ylabel(r'$p_{B,j}$', fontsize=20, rotation='horizontal', labelpad=20)
+	ax[1].set_ylabel(r'$p_{A,i}$', fontsize=20, rotation='horizontal', labelpad=20)
+	ax[0].set_xlabel(None)
+	ax[1].set_xlabel('time [mm:ss]', fontsize=20)
+	# ax[0].set_title(src_audio_filename.split('/')[-1].split('.')[0])
+	# ax[1].set_title(tgt_audio_filename.split('/')[-1].split('.')[0])
+	ax[0].set_title('Andrea Giordano playing her voice', fontsize=20)
+	ax[1].set_title('SCSCI playing chaotic synthesizer', fontsize=20)
+	# ax[0].set_title(r'Musician $B$', fontsize=20)
+	# ax[1].set_title(r'Musician $A$', fontsize=20)
 	songname = src_audio_filename.split('/')[-2]
 	if save_dir:
 		fig.savefig(f'{save_dir}/{songname}.png')
