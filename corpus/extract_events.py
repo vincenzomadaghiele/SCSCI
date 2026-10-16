@@ -35,6 +35,8 @@ def adjustAmplitude(signal, FFT_window_size, hop_size):
 	rms = librosa.feature.rms(y=signal, frame_length=FFT_window_size, hop_length=hop_size)
 	if rms.max() < 0.7: # normalize amplitude
 		signal *= 0.6/signal.max()
+	# if rms.max() < 1: 
+	# 	signal *= 0.9/signal.max()
 	return signal
 
 def detectOnsets(signal, sample_rate, min_event_duration_samples=441):
@@ -67,6 +69,10 @@ def computeEventFeatures(signal, onsets, sample_rate, FFT_window_size, hop_size,
 		else: 
 			duration = this_onset_signal.shape[0]
 		pitch = librosa.yin(this_onset_signal, fmin=200, fmax=sample_rate/2, sr=sample_rate, frame_length=512, hop_length=hop_size)
+		# pitch, _, _ = librosa.pyin(this_onset_signal, sr=sample_rate, frame_length=512, hop_length=hop_size, fmin=200, fmax=sample_rate/2)
+		# pitch = pitch[~np.isnan(pitch)]
+		# if pitch.shape[0] > 0:
+		# 	pitch = np.array([200])
 		if timbre_pitch:
 			BASE_FREQ = 220
 			base_pitch = librosa.hz_to_midi(BASE_FREQ)
@@ -197,6 +203,7 @@ def plotEvents(corpus_entry, sample_rate, save_dir=None, sample_start_s=0, sampl
 		audio_filename = corpus_entry['filename'].values[0]
 
 	signal, _ = librosa.load(audio_filename, sr=sample_rate, mono=True)
+	# signal = adjustAmplitude(signal, FFT_window, hop_size)
 
 	sample_start = sample_start_s * sample_rate
 	if sample_duration_s:

@@ -175,7 +175,7 @@ def plotFlowTimbre(full_flow_latents, flow_latents_path, SAVE_FILEPATH):
     plt.savefig(f'{SAVE_FILEPATH}/2D_PCA_flow.png')
     plt.close(fig)
 
-def plotVAETimbre(full_VAE_latents, VAE_latents_path, SAVE_FILEPATH):
+def plotVAETimbre(full_VAE_latents, VAE_latents_path, SAVE_FILEPATH=None):
     scaler = StandardScaler()
     X = scaler.fit_transform(full_VAE_latents)
     pca = PCA(n_components=3)
@@ -197,8 +197,11 @@ def plotVAETimbre(full_VAE_latents, VAE_latents_path, SAVE_FILEPATH):
     ax.set_title("VAE latent space")
     ax.set_xlabel('PCA 1')
     ax.set_ylabel('PCA 2')
-    plt.savefig(f'{SAVE_FILEPATH}/2D_PCA_VAE.png')
-    plt.close(fig)
+    if SAVE_FILEPATH:
+        plt.savefig(f'{SAVE_FILEPATH}/2D_PCA_VAE.png')
+        plt.close(fig)
+    else:
+        plt.show()
 
 
 if __name__ == '__main__': 
