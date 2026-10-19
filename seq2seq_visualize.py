@@ -17,7 +17,8 @@ if __name__ == '__main__':
 
     # LOAD VAE TIMBRE SPACE
     # corpus_name = 'elena-study-finetune'
-    corpus_name = 'andrea-study-plus'
+    # corpus_name = 'andrea-study-plus'
+    corpus_name = 'petter-study-finetune'
     X = np.load(f'./corpus/{corpus_name}/trained_VAE/latents.npy')
     VAE_scaler = StandardScaler()
     X = VAE_scaler.fit_transform(X)
@@ -28,11 +29,11 @@ if __name__ == '__main__':
 
     # LOAD FLOW TIMBRE SPACE
     # SYNTH_NAME = 'Granular'
-    SYNTH_NAME = 'Rung'
-    # SYNTH_NAME = 'FM'
+    # SYNTH_NAME = 'Rung'
+    SYNTH_NAME = 'FM'
     # N_latents_tgt = 7 # Granular
-    N_latents_tgt = 3 # Rung
-    # N_latents_tgt = 6 # FM
+    # N_latents_tgt = 3 # Rung
+    N_latents_tgt = 6 # FM
     model_name = 'vae_flow_mel_mse_0_gated_cnn_planar_flow_post_maf_3'
     X = np.load(f'./synth/trained_flows/{SYNTH_NAME}/visualize/{model_name}/latents.npy')
     scaler_FLOW = StandardScaler()
@@ -79,10 +80,10 @@ if __name__ == '__main__':
 
     # path = f'transformer/trained/{corpus_name}_{SYNTH_NAME}/1790248738-transformerDiscreteT2V-B/01_live_recordings'
     # song_name = '1791309108'
-    path = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/1790768071-transformerDiscreteT2V/01_live_recordings'
-    song_name = '1791308201'
-    # path = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/1788262110-transformerDiscreteT2V-B/01_live_recordings'
-    # song_name = '1791306899'
+    # path = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/1790768071-transformerDiscreteT2V/01_live_recordings'
+    # song_name = '1791308201'
+    path = f'./transformer/trained/{corpus_name}_{SYNTH_NAME}/1788262110-transformerDiscreteT2V-B/01_live_recordings'
+    song_name = '1791306899'
     signal_src, _ = librosa.load(f'{path}/{song_name}/performance_src.wav', sr=sr, mono=True)
     signal_tgt, _ = librosa.load(f'{path}/{song_name}/performance_tgt.wav', sr=sr, mono=True)
 
@@ -95,8 +96,8 @@ if __name__ == '__main__':
     DURATION_DF = (df_tgt['event_start'].values[-1] + df_tgt['event_duration'].values[-1]) / sr
     DURATION_REAL = 12 * 60 + 15
     # ratio = DURATION_REAL / DURATION_DF * 0.84 # ELENA
-    ratio = DURATION_REAL / DURATION_DF * 0.8 # ANDREA
-    # ratio = DURATION_REAL / DURATION_DF * 1.5 # PETTER
+    # ratio = DURATION_REAL / DURATION_DF * 0.8 # ANDREA
+    ratio = DURATION_REAL / DURATION_DF * 1.5 # PETTER
     df_tgt['event_duration'] = (df_tgt['event_duration'].values * ratio).astype(int)
     durations = df_tgt['event_duration'].values
     start_sample = df_tgt['event_duration'].values[0]

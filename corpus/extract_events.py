@@ -347,8 +347,8 @@ def plotPairedEvents(src_corpus_entry, tgt_corpus_entry, sample_rate, save_dir=N
 	ax[1].set_xlabel('time [mm:ss]', fontsize=20)
 	# ax[0].set_title(src_audio_filename.split('/')[-1].split('.')[0])
 	# ax[1].set_title(tgt_audio_filename.split('/')[-1].split('.')[0])
-	ax[0].set_title('Andrea Giordano playing her voice', fontsize=20)
-	ax[1].set_title('SCSCI playing chaotic synthesizer', fontsize=20)
+	ax[0].set_title('Petter Asbjørnsen playing double bass', fontsize=20)
+	ax[1].set_title('SCSCI playing a frequency-modulation synthesizer', fontsize=20)
 	# ax[0].set_title(r'Musician $B$', fontsize=20)
 	# ax[1].set_title(r'Musician $A$', fontsize=20)
 	songname = src_audio_filename.split('/')[-2]
